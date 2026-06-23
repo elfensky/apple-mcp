@@ -8,8 +8,9 @@ native data-plane adapter, so clean module boundaries are load-bearing.
 
 ## Why this exists (settled)
 
-- The canonical unified server (`supermemoryai/apple-mcp`, 3k★) was **archived Jan 2026** and carries
-  an *"every note returned in full"* context-bloat bug. We don't resurrect it; we own a lean replacement.
+- The canonical unified server (`supermemoryai/apple-mcp`, 3k★) is **archived and unmaintained** and
+  carries an *"every note returned in full"* context-bloat bug. We don't resurrect it; we own a lean
+  replacement.
 - **The apps don't share one access method:** Calendar/Reminders → EventKit (clean, no app-open);
   Mail/Notes → AppleScript; Photos → `osxphotos`; **Journal → no API at all** (no AppleScript
   dictionary, JournalingSuggestions is read-only/iOS-only, entries are E2E-encrypted). So the

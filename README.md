@@ -1,7 +1,7 @@
 # apple-mcp
 
 One consolidated [MCP](https://modelcontextprotocol.io) server for native macOS apps — **Calendar &
-Reminders** today (bidirectional), **Mail** next. Python + [FastMCP 2.0](https://github.com/jlowin/fastmcp),
+Reminders** today (bidirectional), **Mail** next. Python + [FastMCP 2.0](https://github.com/PrefectHQ/fastmcp),
 managed with [uv](https://docs.astral.sh/uv/).
 
 Replaces the two Apple MCP servers a life-cockpit otherwise juggles (`apple-events` + a forked Apple
@@ -33,3 +33,9 @@ Launch off the project's own venv python — deterministic, and it carries the l
 ```
 
 macOS only. Calendar/Reminders use EventKit — grant access when macOS prompts (TCC).
+
+## Prior art & credits
+
+apple-mcp builds on prior work — the Apple Mail MCP it will port, the EventKit/Photos servers it
+references, the project that pioneered the unified-Apple-MCP pattern, and FastMCP / PyObjC / the MCP
+spec it depends on. See [CREDITS.md](CREDITS.md).
