@@ -12,10 +12,13 @@ This is user-latency-bound, not throughput-bound, so serialization costs nothing
 
 from __future__ import annotations
 
+import threading
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from typing import Callable, TypeVar
 
 import EventKit as EK
+import Foundation as F
 
 T = TypeVar("T")
 
@@ -48,3 +51,42 @@ def _decide(status: int) -> None:
         "apple-mcp needs Calendar + Reminders access. Grant it in "
         "System Settings → Privacy & Security → Calendars and Reminders, then restart apple-mcp."
     )
+
+
+_store: "EK.EKEventStore | None" = None
+
+
+def _on_worker() -> bool:
+    return threading.current_thread().name.startswith("apple-native")
+
+
+def store() -> "EK.EKEventStore":
+    """The one process-wide EKEventStore, created lazily on the worker thread.
+
+    Owned by runtime (not an adapter) so both adapters share one store without reaching
+    into each other. Must be called from inside run_native (the apple-native worker).
+    """
+    global _store
+    if not _on_worker():
+        raise RuntimeError("store() must be called on the apple-native worker — wrap the call in run_native()")
+    if _store is None:
+        _store = EK.EKEventStore.alloc().init()
+    return _store
+
+
+def to_nsdate(dt: datetime) -> "F.NSDate":
+    return F.NSDate.dateWithTimeIntervalSince1970_(dt.timestamp())
+
+
+def from_nsdate(d: "F.NSDate") -> datetime:
+    return datetime.fromtimestamp(d.timeIntervalSince1970())
+
+
+def due_components(dt: datetime) -> "F.NSDateComponents":
+    c = F.NSDateComponents.alloc().init()
+    c.setYear_(dt.year)
+    c.setMonth_(dt.month)
+    c.setDay_(dt.day)
+    c.setHour_(dt.hour)
+    c.setMinute_(dt.minute)
+    return c
