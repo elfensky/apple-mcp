@@ -27,3 +27,4 @@ packages = ["apple_mcp"]
 
 [tool.pytest.ini_options]
 markers = ["integration: real macOS / EventKit / TCC — run manually, never in CI"]
+addopts = "-m 'not integration'"
