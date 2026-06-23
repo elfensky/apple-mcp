@@ -49,6 +49,24 @@ def _end_of_day(dt: datetime) -> datetime:
     return dt.replace(hour=23, minute=59, second=59, microsecond=0)
 
 
+def _resolve_list(s, name: str | None):
+    if name is None:
+        return s.defaultCalendarForNewReminders()
+    for c in s.calendarsForEntityType_(EK.EKEntityTypeReminder):
+        if c.title() == name:
+            return c
+    raise ValueError(f"no reminder list named {name!r}")
+
+
+def _apply_reminder(s, r, data: ReminderData) -> None:
+    r.setTitle_(data.title)
+    if data.notes is not None:
+        r.setNotes_(data.notes)
+    if data.due is not None:
+        r.setDueDateComponents_(due_components(data.due))
+    r.setCalendar_(_resolve_list(s, data.list_name))
+
+
 class RemindersAdapter:
     def get_pointers(self, query: str) -> list[Pointer]:
         """query: 'today' | 'overdue' | 'this-week' | a reminder-list name."""
@@ -74,10 +92,41 @@ class RemindersAdapter:
         return run_native(work)
 
     def create_reminder(self, data: ReminderData) -> Pointer:
-        raise NotImplementedError("Task 9")
+        def work():
+            s = store()
+            r = EK.EKReminder.reminderWithEventStore_(s)
+            _apply_reminder(s, r, data)
+            ok, err = s.saveReminder_commit_error_(r, True, None)
+            if not ok:
+                raise RuntimeError(f"save reminder failed: {err}")
+            return _reminder_pointer(r)
+
+        return run_native(work)
 
     def update_reminder(self, ident: str, data: ReminderData) -> Pointer:
-        raise NotImplementedError("Task 9")
+        def work():
+            s = store()
+            r = s.calendarItemWithIdentifier_(ident)
+            if r is None:
+                raise ValueError(f"no reminder with id {ident!r}")
+            _apply_reminder(s, r, data)
+            ok, err = s.saveReminder_commit_error_(r, True, None)
+            if not ok:
+                raise RuntimeError(f"save reminder failed: {err}")
+            return _reminder_pointer(r)
+
+        return run_native(work)
 
     def complete_reminder(self, ident: str) -> Pointer:
-        raise NotImplementedError("Task 9")
+        def work():
+            s = store()
+            r = s.calendarItemWithIdentifier_(ident)
+            if r is None:
+                raise ValueError(f"no reminder with id {ident!r}")
+            r.setCompleted_(True)
+            ok, err = s.saveReminder_commit_error_(r, True, None)
+            if not ok:
+                raise RuntimeError(f"complete reminder failed: {err}")
+            return _reminder_pointer(r)
+
+        return run_native(work)

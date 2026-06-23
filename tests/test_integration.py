@@ -59,3 +59,23 @@ def test_calendar_read_week():
     assert isinstance(ptrs, list)
     for p in ptrs:
         assert p.id and p.summary and p.deeplink.startswith("calshow:")
+
+
+@pytest.mark.integration
+def test_reminder_create_update_complete(created):
+    from apple_mcp.adapters.reminders import RemindersAdapter
+    from apple_mcp.contracts import ReminderData
+
+    run_native(request_access)
+    a = RemindersAdapter()
+
+    p = a.create_reminder(ReminderData(title=f"{TITLE_PREFIX} v1 round-trip"))
+    created.append(("reminder", p.id))
+    assert p.id
+
+    p2 = a.update_reminder(p.id, ReminderData(title=f"{TITLE_PREFIX} v1 round-trip (edited)"))
+    assert p2.id == p.id
+    assert "edited" in p2.summary
+
+    p3 = a.complete_reminder(p.id)
+    assert p3.id == p.id
