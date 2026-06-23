@@ -15,6 +15,8 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, TypeVar
 
+import EventKit as EK
+
 T = TypeVar("T")
 
 # ponytail: one process-wide native thread. If a future app needs a *second* isolated native
@@ -29,3 +31,20 @@ def run_native(fn: Callable[[], T]) -> T:
     regardless of which thread FastMCP invoked the tool from.
     """
     return _executor.submit(fn).result()
+
+
+_FULL_ACCESS = EK.EKAuthorizationStatusFullAccess  # == 3 on macOS 14+
+
+
+class AccessDenied(RuntimeError):
+    """Raised when Calendar/Reminders TCC access is not fully granted."""
+
+
+def _decide(status: int) -> None:
+    """Map an EKAuthorizationStatus to a decision: return on full access, else raise."""
+    if status == _FULL_ACCESS:
+        return
+    raise AccessDenied(
+        "apple-mcp needs Calendar + Reminders access. Grant it in "
+        "System Settings → Privacy & Security → Calendars and Reminders, then restart apple-mcp."
+    )
