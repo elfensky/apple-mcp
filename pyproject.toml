@@ -1,0 +1,29 @@
+[project]
+name = "apple-mcp"
+version = "0.1.0"
+description = "One consolidated MCP server for native macOS apps (Calendar, Reminders, Mail, ...)."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastmcp>=2.0",
+    "pyobjc-framework-EventKit>=10.0",   # Calendar + Reminders (v1)
+]
+
+# Photos extra deferred: osxphotos pins pyobjc-core<10, which conflicts with EventKit's pyobjc-core.
+# Media lives in Immich anyway — revisit only if an Apple Photos adapter is ever truly needed.
+
+[project.scripts]
+apple-mcp = "apple_mcp:main"
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["apple_mcp"]
+
+[tool.pytest.ini_options]
+markers = ["integration: real macOS / EventKit / TCC — run manually, never in CI"]
