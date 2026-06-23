@@ -1,10 +1,20 @@
 """apple-mcp — FastMCP server. Tools are *thin dispatch* to adapters (see contracts.py)."""
-
 from __future__ import annotations
 
 from fastmcp import FastMCP
 
+from .adapters.calendar import CalendarAdapter
+from .adapters.reminders import RemindersAdapter
+from .contracts import Pointer
+
 mcp = FastMCP("apple-mcp")
+
+_reminders = RemindersAdapter()
+_calendar = CalendarAdapter()
+
+
+def _emit(p: Pointer) -> dict[str, str]:
+    return {"id": p.id, "summary": p.summary, "deeplink": p.deeplink}
 
 
 @mcp.tool()
@@ -13,10 +23,16 @@ def ping() -> str:
     return "apple-mcp ok"
 
 
-# v1 (see GitHub issues): mount the EventKit-backed tools here, each a thin dispatch to
-# adapters.{reminders,calendar} via runtime.run_native():
-#   - reads  -> list[Pointer]    (reminders_today, events_today, ...)
-#   - writes -> typed payloads   (create_reminder(ReminderData), create_event(CalendarEventData))
+@mcp.tool()
+def reminders(due: str = "today") -> list[dict]:
+    """List reminders as pointers. `due`: today | overdue | this-week | a list name."""
+    return [_emit(p) for p in _reminders.get_pointers(due)]
+
+
+@mcp.tool()
+def events(when: str = "today") -> list[dict]:
+    """List calendar events as pointers. `when`: today | week | YYYY-MM-DD."""
+    return [_emit(p) for p in _calendar.get_pointers(when)]
 
 
 def main() -> None:
