@@ -21,4 +21,7 @@ def ping() -> str:
 
 def main() -> None:
     """Console entry point (`apple-mcp`) and `python -m apple_mcp`."""
+    from .runtime import bootstrap
+
+    bootstrap()
     mcp.run()  # stdio transport

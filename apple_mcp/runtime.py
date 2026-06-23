@@ -12,6 +12,7 @@ This is user-latency-bound, not throughput-bound, so serialization costs nothing
 
 from __future__ import annotations
 
+import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
@@ -90,3 +91,41 @@ def due_components(dt: datetime) -> "F.NSDateComponents":
     c.setHour_(dt.hour)
     c.setMinute_(dt.minute)
     return c
+
+
+log = logging.getLogger("apple_mcp")
+
+
+def _request_one(s: "EK.EKEventStore", entity: int) -> None:
+    """Request access for one entity type if undetermined, blocking on the async callback."""
+    status = EK.EKEventStore.authorizationStatusForEntityType_(entity)
+    if status == EK.EKAuthorizationStatusNotDetermined:
+        done = threading.Event()
+        requester = (
+            s.requestFullAccessToEventsWithCompletion_
+            if entity == EK.EKEntityTypeEvent
+            else s.requestFullAccessToRemindersWithCompletion_
+        )
+
+        def handler(granted, error, _done=done):  # fires on a GCD queue, not our worker
+            _done.set()
+
+        requester(handler)
+        done.wait()
+        status = EK.EKEventStore.authorizationStatusForEntityType_(entity)
+    _decide(status)
+
+
+def request_access() -> None:
+    """Ensure full Calendar + Reminders access. Call via run_native (runs on the worker)."""
+    s = store()
+    _request_one(s, EK.EKEntityTypeEvent)
+    _request_one(s, EK.EKEntityTypeReminder)
+
+
+def bootstrap() -> None:
+    """Startup hook: create the store + request access on the worker. Denial is non-fatal."""
+    try:
+        run_native(request_access)
+    except AccessDenied as e:
+        log.warning("apple-mcp starting without EventKit access: %s", e)
