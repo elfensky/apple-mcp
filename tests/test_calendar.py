@@ -5,8 +5,9 @@ from datetime import datetime
 from types import SimpleNamespace
 
 import Foundation as F
+import pytest
 
-from apple_mcp.adapters.calendar import _event_pointer, _event_summary, _range
+from apple_mcp.adapters.calendar import _event_pointer, _event_summary, _range, _resolve_calendar
 from apple_mcp.contracts import Pointer
 
 
@@ -48,3 +49,27 @@ def test_range_today_is_one_day():
 def test_range_explicit_date():
     start, end = _range("2026-12-25")
     assert start == datetime(2026, 12, 25) and (end - start).days == 1
+
+
+def _fake_store(cal_names, default="Home"):
+    cals = [SimpleNamespace(title=lambda n=n: n) for n in cal_names]
+    return SimpleNamespace(
+        calendarsForEntityType_=lambda _e: cals,
+        defaultCalendarForNewEvents=lambda: SimpleNamespace(title=lambda: default),
+    )
+
+
+def test_resolve_named_calendar():
+    s = _fake_store(["Work", "Personal"])
+    assert _resolve_calendar(s, "Work").title() == "Work"
+
+
+def test_resolve_default_when_none():
+    s = _fake_store(["Work"])
+    assert _resolve_calendar(s, None).title() == "Home"
+
+
+def test_resolve_missing_calendar_raises():
+    s = _fake_store(["Work"])
+    with pytest.raises(ValueError, match="no calendar named"):
+        _resolve_calendar(s, "Nope")

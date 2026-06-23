@@ -84,3 +84,33 @@ def test_reminder_create_update_complete(created):
 
     p3 = a.complete_reminder(p.id)
     assert p3.id == p.id
+
+
+@pytest.mark.integration
+def test_event_create_update_delete(created):
+    from datetime import datetime, timedelta
+
+    from apple_mcp.adapters.calendar import CalendarAdapter
+    from apple_mcp.contracts import CalendarEventData
+
+    run_native(request_access)
+    a = CalendarAdapter()
+    start = datetime.now().replace(microsecond=0) + timedelta(days=1)
+
+    p = a.create_event(
+        CalendarEventData(title=f"{TITLE_PREFIX} v1 event", start=start, end=start + timedelta(hours=1))
+    )
+    created.append(("event", p.id))
+    assert p.id
+
+    p2 = a.update_event(
+        p.id,
+        CalendarEventData(
+            title=f"{TITLE_PREFIX} v1 event (moved)",
+            start=start + timedelta(hours=2),
+            end=start + timedelta(hours=3),
+        ),
+    )
+    assert p2.id == p.id and "moved" in p2.summary
+
+    a.delete_event(p.id)  # explicit delete; teardown is a no-op for an already-deleted id

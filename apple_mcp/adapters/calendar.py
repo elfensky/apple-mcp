@@ -42,6 +42,24 @@ def _event_pointer(item) -> Pointer:
     return Pointer(id=item.calendarItemIdentifier(), summary=_event_summary(item), deeplink=_event_deeplink(item))
 
 
+def _resolve_calendar(s, name: str | None):
+    if name is None:
+        return s.defaultCalendarForNewEvents()
+    for c in s.calendarsForEntityType_(EK.EKEntityTypeEvent):
+        if c.title() == name:
+            return c
+    raise ValueError(f"no calendar named {name!r}")
+
+
+def _apply_event(s, e, data: CalendarEventData) -> None:
+    e.setTitle_(data.title)
+    e.setStartDate_(to_nsdate(data.start))
+    e.setEndDate_(to_nsdate(data.end))
+    e.setLocation_(data.location)  # full-replace: None clears
+    e.setNotes_(data.notes)  # full-replace: None clears
+    e.setCalendar_(_resolve_calendar(s, data.calendar))
+
+
 class CalendarAdapter:
     def get_pointers(self, query: str) -> list[Pointer]:
         """query: 'today' | 'week' | 'YYYY-MM-DD'."""
@@ -55,10 +73,39 @@ class CalendarAdapter:
         return run_native(work)
 
     def create_event(self, data: CalendarEventData) -> Pointer:
-        raise NotImplementedError("Task 10")
+        def work():
+            s = store()
+            e = EK.EKEvent.eventWithEventStore_(s)
+            _apply_event(s, e, data)
+            ok, err = s.saveEvent_span_commit_error_(e, EK.EKSpanThisEvent, True, None)
+            if not ok:
+                raise RuntimeError(f"save event failed: {err}")
+            return _event_pointer(e)
+
+        return run_native(work)
 
     def update_event(self, ident: str, data: CalendarEventData) -> Pointer:
-        raise NotImplementedError("Task 10")
+        def work():
+            s = store()
+            e = s.calendarItemWithIdentifier_(ident)
+            if e is None:
+                raise ValueError(f"no event with id {ident!r}")
+            _apply_event(s, e, data)
+            ok, err = s.saveEvent_span_commit_error_(e, EK.EKSpanThisEvent, True, None)
+            if not ok:
+                raise RuntimeError(f"save event failed: {err}")
+            return _event_pointer(e)
+
+        return run_native(work)
 
     def delete_event(self, ident: str) -> None:
-        raise NotImplementedError("Task 10")
+        def work():
+            s = store()
+            e = s.calendarItemWithIdentifier_(ident)
+            if e is None:
+                raise ValueError(f"no event with id {ident!r}")
+            ok, err = s.removeEvent_span_commit_error_(e, EK.EKSpanThisEvent, True, None)
+            if not ok:
+                raise RuntimeError(f"delete event failed: {err}")
+
+        run_native(work)
