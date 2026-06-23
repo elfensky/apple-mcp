@@ -48,3 +48,14 @@ def test_reminders_read_today():
     assert isinstance(ptrs, list)
     for p in ptrs:
         assert p.id and p.summary and p.deeplink.startswith("x-apple-reminderkit://")
+
+
+@pytest.mark.integration
+def test_calendar_read_week():
+    from apple_mcp.adapters.calendar import CalendarAdapter
+
+    run_native(request_access)
+    ptrs = CalendarAdapter().get_pointers("week")
+    assert isinstance(ptrs, list)
+    for p in ptrs:
+        assert p.id and p.summary and p.deeplink.startswith("calshow:")

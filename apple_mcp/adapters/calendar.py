@@ -1,18 +1,64 @@
 """Calendar adapter — EventKit via PyObjC.
 
-STUB. Implemented in v1 (see GitHub issues). Reads return Pointers; writes take ``CalendarEventData``.
-All EventKit access MUST go through ``runtime.run_native`` (single serialized worker thread).
+Reads return Pointers; writes take ``CalendarEventData``. All EventKit access goes through
+``runtime.run_native``; the store is owned by runtime (shared, not reached-into).
 """
-
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+
+import EventKit as EK
+
 from ..contracts import CalendarEventData, Pointer
+from ..runtime import from_nsdate, run_native, store, to_nsdate
+
+
+def _range(query: str) -> tuple[datetime, datetime]:
+    q = query.strip().lower()
+    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    if q == "today":
+        return today, today + timedelta(days=1)
+    if q == "week":
+        return today, today + timedelta(days=7)
+    day = datetime.fromisoformat(query.strip()).replace(hour=0, minute=0, second=0, microsecond=0)
+    return day, day + timedelta(days=1)
+
+
+def _event_summary(item) -> str:
+    start = from_nsdate(item.startDate())
+    if item.isAllDay():
+        return f"{item.title()} (all day {start:%Y-%m-%d})"
+    end = from_nsdate(item.endDate())
+    return f"{item.title()} {start:%H:%M}–{end:%H:%M}"
+
+
+def _event_deeplink(item) -> str:
+    # No public per-event URL scheme; calshow: opens Calendar to the event's day (verify on-device).
+    secs = int(item.startDate().timeIntervalSinceReferenceDate())
+    return f"calshow:{secs}"
+
+
+def _event_pointer(item) -> Pointer:
+    return Pointer(id=item.calendarItemIdentifier(), summary=_event_summary(item), deeplink=_event_deeplink(item))
 
 
 class CalendarAdapter:
-    # ponytail: share the EKEventStore created by the reminders adapter (one store, one thread).
     def get_pointers(self, query: str) -> list[Pointer]:
-        raise NotImplementedError("v1: EventKit calendar read — see GitHub issues")
+        """query: 'today' | 'week' | 'YYYY-MM-DD'."""
+
+        def work():
+            s = store()
+            start, end = _range(query)
+            pred = s.predicateForEventsWithStartDate_endDate_calendars_(to_nsdate(start), to_nsdate(end), None)
+            return [_event_pointer(e) for e in (s.eventsMatchingPredicate_(pred) or [])]
+
+        return run_native(work)
 
     def create_event(self, data: CalendarEventData) -> Pointer:
-        raise NotImplementedError("v1: EventKit calendar write — see GitHub issues")
+        raise NotImplementedError("Task 10")
+
+    def update_event(self, ident: str, data: CalendarEventData) -> Pointer:
+        raise NotImplementedError("Task 10")
+
+    def delete_event(self, ident: str) -> None:
+        raise NotImplementedError("Task 10")
