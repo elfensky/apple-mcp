@@ -64,9 +64,10 @@ class RemindersAdapter:
                     None, to_nsdate(end), cals
                 )
             else:
-                named = [c for c in cals if c.title() == query]
+                name = query.strip()
+                named = [c for c in cals if c.title() == name]
                 if not named:
-                    raise ValueError(f"no reminder list named {query!r}")
+                    raise ValueError(f"no reminder list named {name!r}")
                 pred = s.predicateForRemindersInCalendars_(named)
             return [_reminder_pointer(r) for r in _fetch_reminders(s, pred)]
 
