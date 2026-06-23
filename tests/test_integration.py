@@ -63,19 +63,24 @@ def test_calendar_read_week():
 
 @pytest.mark.integration
 def test_reminder_create_update_complete(created):
+    from datetime import datetime, timedelta
+
     from apple_mcp.adapters.reminders import RemindersAdapter
     from apple_mcp.contracts import ReminderData
 
     run_native(request_access)
     a = RemindersAdapter()
 
-    p = a.create_reminder(ReminderData(title=f"{TITLE_PREFIX} v1 round-trip"))
+    due = datetime.now().replace(microsecond=0) + timedelta(days=1)
+    p = a.create_reminder(ReminderData(title=f"{TITLE_PREFIX} v1 round-trip", due=due))
     created.append(("reminder", p.id))
     assert p.id
+    assert "due" in p.summary  # created with a due date
 
-    p2 = a.update_reminder(p.id, ReminderData(title=f"{TITLE_PREFIX} v1 round-trip (edited)"))
+    p2 = a.update_reminder(p.id, ReminderData(title=f"{TITLE_PREFIX} v1 round-trip (edited)"))  # due=None → cleared
     assert p2.id == p.id
     assert "edited" in p2.summary
+    assert "due" not in p2.summary  # full-replace cleared the due date
 
     p3 = a.complete_reminder(p.id)
     assert p3.id == p.id

@@ -60,10 +60,8 @@ def _resolve_list(s, name: str | None):
 
 def _apply_reminder(s, r, data: ReminderData) -> None:
     r.setTitle_(data.title)
-    if data.notes is not None:
-        r.setNotes_(data.notes)
-    if data.due is not None:
-        r.setDueDateComponents_(due_components(data.due))
+    r.setNotes_(data.notes)                          # full-replace: None clears
+    r.setDueDateComponents_(due_components(data.due) if data.due is not None else None)
     r.setCalendar_(_resolve_list(s, data.list_name))
 
 
