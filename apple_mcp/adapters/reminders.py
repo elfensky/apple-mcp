@@ -1,18 +1,82 @@
 """Reminders adapter — EventKit via PyObjC.
 
-STUB. Implemented in v1 (see GitHub issues). Reads return Pointers; writes take ``ReminderData``.
-All EventKit access MUST go through ``runtime.run_native`` (single serialized worker thread).
+Reads return Pointers; writes take ``ReminderData``. All EventKit access goes through
+``runtime.run_native`` (single serialized worker), and the store is owned by runtime.
 """
-
 from __future__ import annotations
 
+import threading
+from datetime import datetime, timedelta
+
+import EventKit as EK
+
 from ..contracts import Pointer, ReminderData
+from ..runtime import due_components, run_native, store, to_nsdate
+
+
+def _reminder_summary(item) -> str:
+    due = item.dueDateComponents()
+    if due is not None:
+        return f"{item.title()} — due {due.year():04d}-{due.month():02d}-{due.day():02d}"
+    return item.title()
+
+
+def _reminder_deeplink(ident: str) -> str:
+    # Best-effort scheme; verify on-device that it opens the item (DESIGN: deeplinks are a calibration knob).
+    return f"x-apple-reminderkit://REMCDReminder/{ident}"
+
+
+def _reminder_pointer(item) -> Pointer:
+    ident = item.calendarItemIdentifier()
+    return Pointer(id=ident, summary=_reminder_summary(item), deeplink=_reminder_deeplink(ident))
+
+
+def _fetch_reminders(s, predicate) -> list:
+    """fetchRemindersMatchingPredicate_completion_ is async — block on the callback (on the worker)."""
+    done = threading.Event()
+    box: dict[str, list] = {}
+
+    def handler(reminders, _box=box, _done=done):
+        _box["items"] = list(reminders or [])
+        _done.set()
+
+    s.fetchRemindersMatchingPredicate_completion_(predicate, handler)
+    done.wait()
+    return box["items"]
+
+
+def _end_of_day(dt: datetime) -> datetime:
+    return dt.replace(hour=23, minute=59, second=59, microsecond=0)
 
 
 class RemindersAdapter:
-    # ponytail: create the EKEventStore on runtime's single worker at __init__ + request TCC there.
     def get_pointers(self, query: str) -> list[Pointer]:
-        raise NotImplementedError("v1: EventKit reminders read — see GitHub issues")
+        """query: 'today' | 'overdue' | 'this-week' | a reminder-list name."""
+
+        def work():
+            s = store()
+            cals = s.calendarsForEntityType_(EK.EKEntityTypeReminder)
+            q = query.strip().lower()
+            if q in ("today", "overdue", "this-week"):
+                now = datetime.now()
+                end = {"today": _end_of_day(now), "overdue": now, "this-week": now + timedelta(days=7)}[q]
+                pred = s.predicateForIncompleteRemindersWithDueDateStarting_ending_calendars_(
+                    None, to_nsdate(end), cals
+                )
+            else:
+                named = [c for c in cals if c.title() == query]
+                if not named:
+                    raise ValueError(f"no reminder list named {query!r}")
+                pred = s.predicateForRemindersInCalendars_(named)
+            return [_reminder_pointer(r) for r in _fetch_reminders(s, pred)]
+
+        return run_native(work)
 
     def create_reminder(self, data: ReminderData) -> Pointer:
-        raise NotImplementedError("v1: EventKit reminders write — see GitHub issues")
+        raise NotImplementedError("Task 9")
+
+    def update_reminder(self, ident: str, data: ReminderData) -> Pointer:
+        raise NotImplementedError("Task 9")
+
+    def complete_reminder(self, ident: str) -> Pointer:
+        raise NotImplementedError("Task 9")

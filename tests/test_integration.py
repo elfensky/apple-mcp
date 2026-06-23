@@ -37,3 +37,14 @@ def created():
 @pytest.mark.integration
 def test_request_access_grants_full():
     run_native(request_access)  # raises AccessDenied if not granted — grant when prompted
+
+
+@pytest.mark.integration
+def test_reminders_read_today():
+    from apple_mcp.adapters.reminders import RemindersAdapter
+
+    run_native(request_access)
+    ptrs = RemindersAdapter().get_pointers("today")
+    assert isinstance(ptrs, list)
+    for p in ptrs:
+        assert p.id and p.summary and p.deeplink.startswith("x-apple-reminderkit://")
