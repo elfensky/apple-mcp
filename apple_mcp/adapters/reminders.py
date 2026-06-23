@@ -76,6 +76,8 @@ class RemindersAdapter:
             if q in ("today", "overdue", "this-week"):
                 now = datetime.now()
                 end = {"today": _end_of_day(now), "overdue": now, "this-week": now + timedelta(days=7)}[q]
+                # No lower bound (start=None) is intentional: each selector wants all incomplete
+                # reminders due up to `end`, so overdue ⊂ today ⊂ this-week. The briefing relies on this.
                 pred = s.predicateForIncompleteRemindersWithDueDateStarting_ending_calendars_(
                     None, to_nsdate(end), cals
                 )

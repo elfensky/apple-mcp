@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
+import pytest
+
 import apple_mcp.server as srv
 from apple_mcp.contracts import CalendarEventData, Pointer, ReminderData
 
@@ -87,3 +89,9 @@ def test_delete_event_dispatches(monkeypatch):
     monkeypatch.setattr(srv, "_calendar", fake)
     out = srv.delete_event("E-1")
     assert fake.calls[0] == ("delete_event", "E-1") and out == {"deleted": "E-1"}
+
+
+def test_create_event_rejects_empty_start():
+    # Required event dates fail clearly at the tool boundary, not as an obscure worker-thread crash.
+    with pytest.raises(ValueError, match="ISO datetime"):
+        srv.create_event("Standup", start="", end="2026-06-24T09:15:00")

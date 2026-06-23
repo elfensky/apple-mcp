@@ -38,7 +38,16 @@ def events(when: str = "today") -> list[dict]:
 
 
 def _parse(s: str | None) -> "datetime | None":
+    """Optional ISO datetime (reminder due). Empty/absent → None."""
     return datetime.fromisoformat(s) if s else None
+
+
+def _parse_required(label: str, s: str) -> datetime:
+    """Required ISO datetime (event start/end). Bad/empty input fails clearly at the tool boundary."""
+    try:
+        return datetime.fromisoformat(s)
+    except (TypeError, ValueError) as e:
+        raise ValueError(f"{label} must be an ISO datetime string (e.g. 2026-06-24T09:00:00), got {s!r}") from e
 
 
 @mcp.tool()
@@ -64,14 +73,14 @@ def complete_reminder(id: str) -> dict:
 @mcp.tool()
 def create_event(title: str, start: str, end: str, calendar: str | None = None, location: str | None = None, notes: str | None = None) -> dict:
     """Create a calendar event. `start`/`end` are ISO datetime strings."""
-    data = CalendarEventData(title=title, start=_parse(start), end=_parse(end), calendar=calendar, location=location, notes=notes)
+    data = CalendarEventData(title=title, start=_parse_required("start", start), end=_parse_required("end", end), calendar=calendar, location=location, notes=notes)
     return _emit(_calendar.create_event(data))
 
 
 @mcp.tool()
 def update_event(id: str, title: str, start: str, end: str, calendar: str | None = None, location: str | None = None, notes: str | None = None) -> dict:
     """Update an event by id (full replace from the given fields)."""
-    data = CalendarEventData(title=title, start=_parse(start), end=_parse(end), calendar=calendar, location=location, notes=notes)
+    data = CalendarEventData(title=title, start=_parse_required("start", start), end=_parse_required("end", end), calendar=calendar, location=location, notes=notes)
     return _emit(_calendar.update_event(id, data))
 
 

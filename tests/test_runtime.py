@@ -1,9 +1,19 @@
 """Unit tests for the native runtime — pure helpers only; no EventKit calls."""
 from __future__ import annotations
 
+from datetime import datetime
+
 import pytest
 
-from apple_mcp.runtime import AccessDenied, _decide
+from apple_mcp.runtime import (
+    AccessDenied,
+    _decide,
+    due_components,
+    from_nsdate,
+    run_native,
+    store,
+    to_nsdate,
+)
 
 
 def test_decide_passes_on_full_access():
@@ -16,14 +26,8 @@ def test_decide_raises_on_anything_else(status):
         _decide(status)
 
 
-from datetime import datetime
-
-from apple_mcp.runtime import due_components, from_nsdate, run_native, store, to_nsdate
-
-
 def test_store_rejects_off_worker_calls():
     # Called directly (main thread, not the apple-native worker) → must refuse.
-    import pytest
     with pytest.raises(RuntimeError, match="run_native"):
         store()
 
