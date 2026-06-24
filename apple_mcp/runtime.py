@@ -125,6 +125,34 @@ def run_osascript(script: str, timeout: float = _OSASCRIPT_TIMEOUT) -> str:
     return _run() if _on_worker() else run_native(_run)
 
 
+_ASYNC_TIMEOUT = 30.0  # seconds
+
+
+def run_native_async(start, timeout: float = _ASYNC_TIMEOUT):
+    """Block on a completion-handler call; bounded so a dropped callback can't hang.
+
+    Generalizes the EventKit fetch pattern. ``start(finish)`` kicks off the async op
+    and arranges its completion handler to call ``finish(result)``; this returns that
+    result, or raises TimeoutError if the callback never fires within ``timeout``.
+    Call on the worker (inside run_native), where ``start`` issues the native call.
+
+    Works for GCD-delivered callbacks (EventKit fetch/auth). ponytail: APIs that
+    deliver on the main run loop (MapKit, NSMetadataQuery) need an NSRunLoop pump here —
+    add it with the first such consumer (Maps #17 / Photos #20) to validate it.
+    """
+    box: dict = {}
+    done = threading.Event()
+
+    def finish(result=None):
+        box["result"] = result
+        done.set()
+
+    start(finish)
+    if not done.wait(timeout=timeout):
+        raise TimeoutError(f"native async callback never fired within {timeout}s")
+    return box.get("result")
+
+
 def to_nsdate(dt: datetime) -> F.NSDate:
     return F.NSDate.dateWithTimeIntervalSince1970_(dt.timestamp())
 
