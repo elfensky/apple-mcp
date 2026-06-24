@@ -64,10 +64,15 @@ def _end_of_day(dt: datetime) -> datetime:
     return dt.replace(hour=23, minute=59, second=59, microsecond=0)
 
 
-def _incomplete_due_pred(s, end: datetime, cals):
-    """All incomplete reminders due up to ``end``, no lower bound (start=None)."""
+def _incomplete_due_pred(s, end: datetime | None, cals):
+    """Incomplete reminders due up to ``end`` (no lower bound, start=None).
+
+    ``end=None`` → all incomplete reminders regardless of due date. The named-list path
+    relies on this: the old ``predicateForRemindersInCalendars_`` leaked completed items
+    (parity row 4), so every reminder read now routes through this one incomplete-only selector.
+    """
     return s.predicateForIncompleteRemindersWithDueDateStarting_ending_calendars_(
-        None, to_nsdate(end), cals
+        None, to_nsdate(end) if end is not None else None, cals
     )
 
 
@@ -111,7 +116,9 @@ class RemindersAdapter:
                 named = [c for c in cals if c.title() == name]
                 if not named:
                     raise ValueError(f"no reminder list named {name!r}")
-                pred = s.predicateForRemindersInCalendars_(named)
+                # Incomplete-only (both bounds nil), same selector as the date paths — the old
+                # predicateForRemindersInCalendars_ leaked completed reminders (parity row 4).
+                pred = _incomplete_due_pred(s, None, named)
             return [_reminder_pointer(r) for r in _fetch_reminders(s, pred)]
 
         return run_native(work)
