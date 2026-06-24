@@ -1,9 +1,10 @@
 """Integration tests — REAL EventKit on this Mac. Run with: uv run pytest -m integration
 
-Never run in CI (no macOS / TCC there). Grant Calendar + Reminders access when first prompted.
-Tests create items in the DEFAULT list/calendar with an 'apple-mcp-test:' title prefix and
-remove everything they create in teardown.
+Never run in CI (no macOS / TCC there). Grant Calendar + Reminders access when first
+prompted. Tests create items in the DEFAULT list/calendar with an 'apple-mcp-test:'
+title prefix and remove everything they create in teardown.
 """
+
 from __future__ import annotations
 
 import EventKit as EK
@@ -36,7 +37,9 @@ def created():
 
 @pytest.mark.integration
 def test_request_access_grants_full():
-    run_native(request_access)  # raises AccessDenied if not granted — grant when prompted
+    run_native(
+        request_access
+    )  # raises AccessDenied if not granted — grant when prompted
 
 
 @pytest.mark.integration
@@ -77,7 +80,9 @@ def test_reminder_create_update_complete(created):
     assert p.id
     assert "due" in p.summary  # created with a due date
 
-    p2 = a.update_reminder(p.id, ReminderData(title=f"{TITLE_PREFIX} v1 round-trip (edited)"))  # due=None → cleared
+    p2 = a.update_reminder(
+        p.id, ReminderData(title=f"{TITLE_PREFIX} v1 round-trip (edited)")
+    )  # due=None → cleared
     assert p2.id == p.id
     assert "edited" in p2.summary
     assert "due" not in p2.summary  # full-replace cleared the due date
@@ -98,7 +103,11 @@ def test_event_create_update_delete(created):
     start = datetime.now().replace(microsecond=0) + timedelta(days=1)
 
     p = a.create_event(
-        CalendarEventData(title=f"{TITLE_PREFIX} v1 event", start=start, end=start + timedelta(hours=1))
+        CalendarEventData(
+            title=f"{TITLE_PREFIX} v1 event",
+            start=start,
+            end=start + timedelta(hours=1),
+        )
     )
     created.append(("event", p.id))
     assert p.id
@@ -113,4 +122,6 @@ def test_event_create_update_delete(created):
     )
     assert p2.id == p.id and "moved" in p2.summary
 
-    a.delete_event(p.id)  # explicit delete; teardown is a no-op for an already-deleted id
+    a.delete_event(
+        p.id
+    )  # explicit delete; teardown is a no-op for an already-deleted id

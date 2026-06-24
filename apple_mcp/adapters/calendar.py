@@ -1,8 +1,10 @@
 """Calendar adapter — EventKit via PyObjC.
 
-Reads return Pointers; writes take ``CalendarEventData``. All EventKit access goes through
-``runtime.run_native``; the store is owned by runtime (shared, not reached-into).
+Reads return Pointers; writes take ``CalendarEventData``. All EventKit access goes
+through ``runtime.run_native``; the store is owned by runtime (shared, not
+reached-into).
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
@@ -20,7 +22,9 @@ def _range(query: str) -> tuple[datetime, datetime]:
         return today, today + timedelta(days=1)
     if q == "week":
         return today, today + timedelta(days=7)
-    day = datetime.fromisoformat(query.strip()).replace(hour=0, minute=0, second=0, microsecond=0)
+    day = datetime.fromisoformat(query.strip()).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
     return day, day + timedelta(days=1)
 
 
@@ -33,13 +37,18 @@ def _event_summary(item) -> str:
 
 
 def _event_deeplink(item) -> str:
-    # No public per-event URL scheme; calshow: opens Calendar to the event's day (verify on-device).
+    # No public per-event URL scheme; calshow: opens Calendar to the event's day
+    # (verify on-device).
     secs = int(item.startDate().timeIntervalSinceReferenceDate())
     return f"calshow:{secs}"
 
 
 def _event_pointer(item) -> Pointer:
-    return Pointer(id=item.calendarItemIdentifier(), summary=_event_summary(item), deeplink=_event_deeplink(item))
+    return Pointer(
+        id=item.calendarItemIdentifier(),
+        summary=_event_summary(item),
+        deeplink=_event_deeplink(item),
+    )
 
 
 def _resolve_calendar(s, name: str | None):
@@ -67,7 +76,9 @@ class CalendarAdapter:
         def work():
             s = store()
             start, end = _range(query)
-            pred = s.predicateForEventsWithStartDate_endDate_calendars_(to_nsdate(start), to_nsdate(end), None)
+            pred = s.predicateForEventsWithStartDate_endDate_calendars_(
+                to_nsdate(start), to_nsdate(end), None
+            )
             return [_event_pointer(e) for e in (s.eventsMatchingPredicate_(pred) or [])]
 
         return run_native(work)
@@ -104,7 +115,9 @@ class CalendarAdapter:
             e = s.calendarItemWithIdentifier_(ident)
             if e is None:
                 raise ValueError(f"no event with id {ident!r}")
-            ok, err = s.removeEvent_span_commit_error_(e, EK.EKSpanThisEvent, True, None)
+            ok, err = s.removeEvent_span_commit_error_(
+                e, EK.EKSpanThisEvent, True, None
+            )
             if not ok:
                 raise RuntimeError(f"delete event failed: {err}")
 

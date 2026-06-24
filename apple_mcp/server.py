@@ -1,4 +1,8 @@
-"""apple-mcp — FastMCP server. Tools are *thin dispatch* to adapters (see contracts.py)."""
+"""apple-mcp — FastMCP server.
+
+Tools are *thin dispatch* to adapters (see contracts.py).
+"""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -37,28 +41,45 @@ def events(when: str = "today") -> list[dict]:
     return [_emit(p) for p in _calendar.get_pointers(when)]
 
 
-def _parse(s: str | None) -> "datetime | None":
+def _parse(s: str | None) -> datetime | None:
     """Optional ISO datetime (reminder due). Empty/absent → None."""
     return datetime.fromisoformat(s) if s else None
 
 
 def _parse_required(label: str, s: str) -> datetime:
-    """Required ISO datetime (event start/end). Bad/empty input fails clearly at the tool boundary."""
+    """Required ISO datetime (event start/end).
+
+    Bad/empty input fails clearly at the tool boundary.
+    """
     try:
         return datetime.fromisoformat(s)
     except (TypeError, ValueError) as e:
-        raise ValueError(f"{label} must be an ISO datetime string (e.g. 2026-06-24T09:00:00), got {s!r}") from e
+        raise ValueError(
+            f"{label} must be an ISO datetime string "
+            f"(e.g. 2026-06-24T09:00:00), got {s!r}"
+        ) from e
 
 
 @mcp.tool()
-def create_reminder(title: str, due: str | None = None, list_name: str | None = None, notes: str | None = None) -> dict:
+def create_reminder(
+    title: str,
+    due: str | None = None,
+    list_name: str | None = None,
+    notes: str | None = None,
+) -> dict:
     """Create a reminder. `due` is an ISO datetime string (e.g. 2026-06-23T18:00:00)."""
     data = ReminderData(title=title, due=_parse(due), list_name=list_name, notes=notes)
     return _emit(_reminders.create_reminder(data))
 
 
 @mcp.tool()
-def update_reminder(id: str, title: str, due: str | None = None, list_name: str | None = None, notes: str | None = None) -> dict:
+def update_reminder(
+    id: str,
+    title: str,
+    due: str | None = None,
+    list_name: str | None = None,
+    notes: str | None = None,
+) -> dict:
     """Update a reminder by id (full replace from the given fields)."""
     data = ReminderData(title=title, due=_parse(due), list_name=list_name, notes=notes)
     return _emit(_reminders.update_reminder(id, data))
@@ -71,16 +92,45 @@ def complete_reminder(id: str) -> dict:
 
 
 @mcp.tool()
-def create_event(title: str, start: str, end: str, calendar: str | None = None, location: str | None = None, notes: str | None = None) -> dict:
+def create_event(
+    title: str,
+    start: str,
+    end: str,
+    calendar: str | None = None,
+    location: str | None = None,
+    notes: str | None = None,
+) -> dict:
     """Create a calendar event. `start`/`end` are ISO datetime strings."""
-    data = CalendarEventData(title=title, start=_parse_required("start", start), end=_parse_required("end", end), calendar=calendar, location=location, notes=notes)
+    data = CalendarEventData(
+        title=title,
+        start=_parse_required("start", start),
+        end=_parse_required("end", end),
+        calendar=calendar,
+        location=location,
+        notes=notes,
+    )
     return _emit(_calendar.create_event(data))
 
 
 @mcp.tool()
-def update_event(id: str, title: str, start: str, end: str, calendar: str | None = None, location: str | None = None, notes: str | None = None) -> dict:
+def update_event(
+    id: str,
+    title: str,
+    start: str,
+    end: str,
+    calendar: str | None = None,
+    location: str | None = None,
+    notes: str | None = None,
+) -> dict:
     """Update an event by id (full replace from the given fields)."""
-    data = CalendarEventData(title=title, start=_parse_required("start", start), end=_parse_required("end", end), calendar=calendar, location=location, notes=notes)
+    data = CalendarEventData(
+        title=title,
+        start=_parse_required("start", start),
+        end=_parse_required("end", end),
+        calendar=calendar,
+        location=location,
+        notes=notes,
+    )
     return _emit(_calendar.update_event(id, data))
 
 

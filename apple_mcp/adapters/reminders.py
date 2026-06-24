@@ -3,6 +3,7 @@
 Reads return Pointers; writes take ``ReminderData``. All EventKit access goes through
 ``runtime.run_native`` (single serialized worker), and the store is owned by runtime.
 """
+
 from __future__ import annotations
 
 import threading
@@ -13,30 +14,37 @@ import EventKit as EK
 from ..contracts import Pointer, ReminderData
 from ..runtime import due_components, run_native, store, to_nsdate
 
-# A fetch has no user interaction, so the GCD callback should arrive quickly. Bound the wait so a
-# callback that never fires can't hang the single worker — and every later run_native — forever.
+# A fetch has no user interaction, so the GCD callback should arrive quickly. Bound the
+# wait so a callback that never fires can't hang the single worker — and every later
+# run_native — forever.
 _FETCH_TIMEOUT = 30.0  # seconds
 
 
 def _reminder_summary(item) -> str:
     due = item.dueDateComponents()
     if due is not None:
-        return f"{item.title()} — due {due.year():04d}-{due.month():02d}-{due.day():02d}"
+        return (
+            f"{item.title()} — due {due.year():04d}-{due.month():02d}-{due.day():02d}"
+        )
     return item.title()
 
 
 def _reminder_deeplink(ident: str) -> str:
-    # Best-effort scheme; verify on-device that it opens the item (DESIGN: deeplinks are a calibration knob).
+    # Best-effort scheme; verify on-device that it opens the item (DESIGN: deeplinks are
+    # a calibration knob).
     return f"x-apple-reminderkit://REMCDReminder/{ident}"
 
 
 def _reminder_pointer(item) -> Pointer:
     ident = item.calendarItemIdentifier()
-    return Pointer(id=ident, summary=_reminder_summary(item), deeplink=_reminder_deeplink(ident))
+    return Pointer(
+        id=ident, summary=_reminder_summary(item), deeplink=_reminder_deeplink(ident)
+    )
 
 
 def _fetch_reminders(s, predicate) -> list:
-    """fetchRemindersMatchingPredicate_completion_ is async — block on the callback (on the worker)."""
+    """fetchRemindersMatchingPredicate_completion_ is async — block on the callback (on
+    the worker)."""
     done = threading.Event()
     box: dict[str, list] = {}
 
@@ -46,12 +54,21 @@ def _fetch_reminders(s, predicate) -> list:
 
     s.fetchRemindersMatchingPredicate_completion_(predicate, handler)
     if not done.wait(timeout=_FETCH_TIMEOUT):
-        raise TimeoutError("EventKit fetchRemindersMatchingPredicate callback never fired")
+        raise TimeoutError(
+            "EventKit fetchRemindersMatchingPredicate callback never fired"
+        )
     return box["items"]
 
 
 def _end_of_day(dt: datetime) -> datetime:
     return dt.replace(hour=23, minute=59, second=59, microsecond=0)
+
+
+def _incomplete_due_pred(s, end: datetime, cals):
+    """All incomplete reminders due up to ``end``, no lower bound (start=None)."""
+    return s.predicateForIncompleteRemindersWithDueDateStarting_ending_calendars_(
+        None, to_nsdate(end), cals
+    )
 
 
 def _resolve_list(s, name: str | None):
@@ -65,7 +82,7 @@ def _resolve_list(s, name: str | None):
 
 def _apply_reminder(s, r, data: ReminderData) -> None:
     r.setTitle_(data.title)
-    r.setNotes_(data.notes)                          # full-replace: None clears
+    r.setNotes_(data.notes)  # full-replace: None clears
     r.setDueDateComponents_(due_components(data.due) if data.due is not None else None)
     r.setCalendar_(_resolve_list(s, data.list_name))
 
@@ -80,12 +97,15 @@ class RemindersAdapter:
             q = query.strip().lower()
             if q in ("today", "overdue", "this-week"):
                 now = datetime.now()
-                end = {"today": _end_of_day(now), "overdue": now, "this-week": now + timedelta(days=7)}[q]
-                # No lower bound (start=None) is intentional: each selector wants all incomplete
-                # reminders due up to `end`, so overdue ⊂ today ⊂ this-week. The briefing relies on this.
-                pred = s.predicateForIncompleteRemindersWithDueDateStarting_ending_calendars_(
-                    None, to_nsdate(end), cals
-                )
+                end = {
+                    "today": _end_of_day(now),
+                    "overdue": now,
+                    "this-week": now + timedelta(days=7),
+                }[q]
+                # No lower bound (start=None) is intentional: each selector wants all
+                # incomplete reminders due up to `end`, so overdue ⊂ today ⊂ this-week.
+                # The briefing relies on this.
+                pred = _incomplete_due_pred(s, end, cals)
             else:
                 name = query.strip()
                 named = [c for c in cals if c.title() == name]

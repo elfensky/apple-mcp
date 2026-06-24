@@ -1,4 +1,6 @@
-"""Server tool tests — tools are thin dispatch; we swap fake adapters at the boundary (no EventKit)."""
+"""Server tool tests — tools are thin dispatch; we swap fake adapters at the
+boundary (no EventKit)."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -69,20 +71,34 @@ class _FakeWriter:
 def test_create_reminder_builds_typed_payload(monkeypatch):
     fake = _FakeWriter()
     monkeypatch.setattr(srv, "_reminders", fake)
-    out = srv.create_reminder("Call dentist", due="2026-06-23T18:00:00", list_name="Home")
+    out = srv.create_reminder(
+        "Call dentist", due="2026-06-23T18:00:00", list_name="Home"
+    )
     kind, data = fake.calls[0]
     assert kind == "create_reminder"
-    assert data == ReminderData(title="Call dentist", due=datetime(2026, 6, 23, 18, 0), list_name="Home", notes=None)
+    assert data == ReminderData(
+        title="Call dentist",
+        due=datetime(2026, 6, 23, 18, 0),
+        list_name="Home",
+        notes=None,
+    )
     assert out == {"id": "R-9", "summary": "s", "deeplink": "d"}
 
 
 def test_update_reminder_builds_typed_payload(monkeypatch):
     fake = _FakeWriter()
     monkeypatch.setattr(srv, "_reminders", fake)
-    out = srv.update_reminder("R-1", "Call dentist", due="2026-06-23T18:00:00", list_name="Home")
+    out = srv.update_reminder(
+        "R-1", "Call dentist", due="2026-06-23T18:00:00", list_name="Home"
+    )
     kind, ident, data = fake.calls[0]
     assert kind == "update_reminder" and ident == "R-1"
-    assert data == ReminderData(title="Call dentist", due=datetime(2026, 6, 23, 18, 0), list_name="Home", notes=None)
+    assert data == ReminderData(
+        title="Call dentist",
+        due=datetime(2026, 6, 23, 18, 0),
+        list_name="Home",
+        notes=None,
+    )
     assert out == {"id": "R-1", "summary": "s", "deeplink": "d"}
 
 
@@ -99,16 +115,26 @@ def test_create_event_builds_typed_payload(monkeypatch):
     srv.create_event("Standup", start="2026-06-24T09:00:00", end="2026-06-24T09:15:00")
     kind, data = fake.calls[0]
     assert kind == "create_event"
-    assert data == CalendarEventData(title="Standup", start=datetime(2026, 6, 24, 9, 0), end=datetime(2026, 6, 24, 9, 15))
+    assert data == CalendarEventData(
+        title="Standup",
+        start=datetime(2026, 6, 24, 9, 0),
+        end=datetime(2026, 6, 24, 9, 15),
+    )
 
 
 def test_update_event_builds_typed_payload(monkeypatch):
     fake = _FakeWriter()
     monkeypatch.setattr(srv, "_calendar", fake)
-    out = srv.update_event("E-1", "Standup", start="2026-06-24T09:00:00", end="2026-06-24T09:15:00")
+    out = srv.update_event(
+        "E-1", "Standup", start="2026-06-24T09:00:00", end="2026-06-24T09:15:00"
+    )
     kind, ident, data = fake.calls[0]
     assert kind == "update_event" and ident == "E-1"
-    assert data == CalendarEventData(title="Standup", start=datetime(2026, 6, 24, 9, 0), end=datetime(2026, 6, 24, 9, 15))
+    assert data == CalendarEventData(
+        title="Standup",
+        start=datetime(2026, 6, 24, 9, 0),
+        end=datetime(2026, 6, 24, 9, 15),
+    )
     assert out == {"id": "E-1", "summary": "s", "deeplink": "d"}
 
 
@@ -120,6 +146,7 @@ def test_delete_event_dispatches(monkeypatch):
 
 
 def test_create_event_rejects_empty_start():
-    # Required event dates fail clearly at the tool boundary, not as an obscure worker-thread crash.
+    # Required event dates fail clearly at the tool boundary, not as an obscure
+    # worker-thread crash.
     with pytest.raises(ValueError, match="ISO datetime"):
         srv.create_event("Standup", start="", end="2026-06-24T09:15:00")

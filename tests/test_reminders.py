@@ -1,11 +1,17 @@
 """Unit tests for the reminders adapter — pure mapping only (fakes, no EventKit)."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
 
 import pytest
 
-from apple_mcp.adapters.reminders import _reminder_deeplink, _reminder_pointer, _reminder_summary, _resolve_list
+from apple_mcp.adapters.reminders import (
+    _reminder_deeplink,
+    _reminder_pointer,
+    _reminder_summary,
+    _resolve_list,
+)
 from apple_mcp.contracts import Pointer
 
 
@@ -37,7 +43,11 @@ def test_deeplink_format():
 def test_pointer_shape():
     p = _reminder_pointer(_fake_reminder("Call dentist", "R-1", due=(2026, 6, 23)))
     assert isinstance(p, Pointer)
-    assert p.id == "R-1" and p.summary.startswith("Call dentist") and p.deeplink.endswith("/R-1")
+    assert (
+        p.id == "R-1"
+        and p.summary.startswith("Call dentist")
+        and p.deeplink.endswith("/R-1")
+    )
 
 
 def _fake_store(list_names, default="Inbox"):

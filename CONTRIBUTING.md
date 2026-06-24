@@ -7,7 +7,7 @@ uv sync
 
 ## Tests
 ```sh
-uv run pytest -q              # unit tests — no macOS access needed; this is what CI runs
+uv run pytest                 # unit tests — no macOS access needed; this is what CI runs
 uv run pytest -m integration  # real EventKit / TCC — this Mac only, grant access when prompted; NEVER in CI
 ```
 
@@ -15,6 +15,21 @@ uv run pytest -m integration  # real EventKit / TCC — this Mac only, grant acc
 ```sh
 uv run apple-mcp              # stdio transport
 ```
+
+## Lint & format
+```sh
+uv run ruff check .          # lint
+uv run ruff check . --fix    # lint with autofix
+uv run ruff format .         # format
+uv run ruff format --check . # check formatting, no writes — what CI runs
+```
+ruff config lives in `pyproject.toml` (line-length 88; rules `E, F, I, UP, B, SIM`) — the same setup
+as the sibling repos. Before committing, run the full chain and report real output rather than
+suppressing failures:
+```sh
+uv run pytest && uv run ruff check . && uv run ruff format --check .
+```
+Commits follow conventional-commit prefixes (`feat:`, `fix:`, `docs:`, `test:`, `chore:`, `refactor:`).
 
 ## Non-negotiable invariants
 - **All EventKit / native access goes through `runtime.run_native`** (one serialized worker, `max_workers=1`). Never widen the executor; never touch `EKEventStore` from another thread.
