@@ -37,8 +37,11 @@ def _event_summary(item) -> str:
 
 
 def _event_deeplink(item) -> str:
-    # No public per-event URL scheme; calshow: opens Calendar to the event's day
-    # (verify on-device).
+    # calshow:<seconds-since-2001> opens Calendar to the event's day/time (and selects it when it's the
+    # only event then). macOS has NO public scheme to open a *specific* event by id: x-apple-calevent://
+    # is unrecognized and eventIdentifier isn't URL-addressable (Apple Dev Forums #759266) — and
+    # eventIdentifier is occurrence-shared anyway. So co-starting events share a deeplink; the Pointer
+    # summary and occurrence-precise id (see _event_id) disambiguate — the deeplink only lands the slot.
     secs = int(item.startDate().timeIntervalSinceReferenceDate())
     return f"calshow:{secs}"
 
