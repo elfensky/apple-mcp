@@ -46,6 +46,10 @@ class _FakeWriter:
         self.calls.append(("create_reminder", data))
         return Pointer(id="R-9", summary="s", deeplink="d")
 
+    def update_reminder(self, ident: str, data: ReminderData) -> Pointer:
+        self.calls.append(("update_reminder", ident, data))
+        return Pointer(id=ident, summary="s", deeplink="d")
+
     def complete_reminder(self, ident: str) -> Pointer:
         self.calls.append(("complete_reminder", ident))
         return Pointer(id=ident, summary="done", deeplink="d")
@@ -53,6 +57,10 @@ class _FakeWriter:
     def create_event(self, data: CalendarEventData) -> Pointer:
         self.calls.append(("create_event", data))
         return Pointer(id="E-9", summary="s", deeplink="d")
+
+    def update_event(self, ident: str, data: CalendarEventData) -> Pointer:
+        self.calls.append(("update_event", ident, data))
+        return Pointer(id=ident, summary="s", deeplink="d")
 
     def delete_event(self, ident: str) -> None:
         self.calls.append(("delete_event", ident))
@@ -66,6 +74,16 @@ def test_create_reminder_builds_typed_payload(monkeypatch):
     assert kind == "create_reminder"
     assert data == ReminderData(title="Call dentist", due=datetime(2026, 6, 23, 18, 0), list_name="Home", notes=None)
     assert out == {"id": "R-9", "summary": "s", "deeplink": "d"}
+
+
+def test_update_reminder_builds_typed_payload(monkeypatch):
+    fake = _FakeWriter()
+    monkeypatch.setattr(srv, "_reminders", fake)
+    out = srv.update_reminder("R-1", "Call dentist", due="2026-06-23T18:00:00", list_name="Home")
+    kind, ident, data = fake.calls[0]
+    assert kind == "update_reminder" and ident == "R-1"
+    assert data == ReminderData(title="Call dentist", due=datetime(2026, 6, 23, 18, 0), list_name="Home", notes=None)
+    assert out == {"id": "R-1", "summary": "s", "deeplink": "d"}
 
 
 def test_complete_reminder_dispatches(monkeypatch):
@@ -82,6 +100,16 @@ def test_create_event_builds_typed_payload(monkeypatch):
     kind, data = fake.calls[0]
     assert kind == "create_event"
     assert data == CalendarEventData(title="Standup", start=datetime(2026, 6, 24, 9, 0), end=datetime(2026, 6, 24, 9, 15))
+
+
+def test_update_event_builds_typed_payload(monkeypatch):
+    fake = _FakeWriter()
+    monkeypatch.setattr(srv, "_calendar", fake)
+    out = srv.update_event("E-1", "Standup", start="2026-06-24T09:00:00", end="2026-06-24T09:15:00")
+    kind, ident, data = fake.calls[0]
+    assert kind == "update_event" and ident == "E-1"
+    assert data == CalendarEventData(title="Standup", start=datetime(2026, 6, 24, 9, 0), end=datetime(2026, 6, 24, 9, 15))
+    assert out == {"id": "E-1", "summary": "s", "deeplink": "d"}
 
 
 def test_delete_event_dispatches(monkeypatch):

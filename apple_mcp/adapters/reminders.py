@@ -13,6 +13,10 @@ import EventKit as EK
 from ..contracts import Pointer, ReminderData
 from ..runtime import due_components, run_native, store, to_nsdate
 
+# A fetch has no user interaction, so the GCD callback should arrive quickly. Bound the wait so a
+# callback that never fires can't hang the single worker — and every later run_native — forever.
+_FETCH_TIMEOUT = 30.0  # seconds
+
 
 def _reminder_summary(item) -> str:
     due = item.dueDateComponents()
@@ -41,7 +45,8 @@ def _fetch_reminders(s, predicate) -> list:
         _done.set()
 
     s.fetchRemindersMatchingPredicate_completion_(predicate, handler)
-    done.wait()
+    if not done.wait(timeout=_FETCH_TIMEOUT):
+        raise TimeoutError("EventKit fetchRemindersMatchingPredicate callback never fired")
     return box["items"]
 
 

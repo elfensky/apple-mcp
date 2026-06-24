@@ -4,8 +4,8 @@ Settled by design (adversarial debate). ``EKEventStore`` has **thread affinity**
 accessed from the thread that created it) and **TCC** authorization must be handled on a consistent
 thread. A generic ``asyncio.to_thread`` / default multi-worker pool scatters calls across threads →
 affinity bugs and a hung first-permission prompt. So every native call goes through a single
-``max_workers=1`` executor; the ``EKEventStore`` itself is created *inside* that worker at startup
-(done by the adapters — see GitHub issues).
+``max_workers=1`` executor; the ``EKEventStore`` itself is created *inside* that worker, lazily by
+``store()`` (owned by runtime, not the adapters — they obtain it by calling ``store()`` via run_native).
 
 This is user-latency-bound, not throughput-bound, so serialization costs nothing in practice.
 """
@@ -38,6 +38,11 @@ def run_native(fn: Callable[[], T]) -> T:
 
 
 _FULL_ACCESS = EK.EKAuthorizationStatusFullAccess  # == 3 on macOS 14+
+
+# Generous (this wait blocks on the user answering a TCC prompt) but bounded: a callback that never
+# fires (headless/sandboxed, EventKit error) must not hang the sole worker — and every later
+# run_native — forever. ponytail: bump if a user legitimately needs >2min to click Allow.
+_ACCESS_TIMEOUT = 120.0  # seconds
 
 
 class AccessDenied(RuntimeError):
@@ -111,7 +116,8 @@ def _request_one(s: "EK.EKEventStore", entity: int) -> None:
             _done.set()
 
         requester(handler)
-        done.wait()
+        if not done.wait(timeout=_ACCESS_TIMEOUT):
+            raise AccessDenied("Timed out waiting for the Calendar/Reminders permission response.")
         status = EK.EKEventStore.authorizationStatusForEntityType_(entity)
     _decide(status)
 
