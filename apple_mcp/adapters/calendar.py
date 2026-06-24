@@ -51,6 +51,12 @@ def _event_pointer(item) -> Pointer:
     )
 
 
+def _calendar_pointer(cal) -> Pointer:
+    # A calendar (container) has no public per-calendar URL scheme; id + name (summary) are what
+    # the projection resolves a write target against. deeplink left empty by design.
+    return Pointer(id=cal.calendarIdentifier(), summary=cal.title(), deeplink="")
+
+
 def _resolve_calendar(s, name: str | None):
     if name is None:
         return s.defaultCalendarForNewEvents()
@@ -80,6 +86,18 @@ class CalendarAdapter:
                 to_nsdate(start), to_nsdate(end), None
             )
             return [_event_pointer(e) for e in (s.eventsMatchingPredicate_(pred) or [])]
+
+        return run_native(work)
+
+    def get_calendars(self) -> list[Pointer]:
+        """Enumerate calendars as Pointers (id + name) — resolve a name to target writes."""
+
+        def work():
+            s = store()
+            return [
+                _calendar_pointer(c)
+                for c in s.calendarsForEntityType_(EK.EKEntityTypeEvent)
+            ]
 
         return run_native(work)
 

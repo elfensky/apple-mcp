@@ -41,6 +41,18 @@ def events(when: str = "today") -> list[dict]:
     return [_emit(p) for p in _calendar.get_pointers(when)]
 
 
+@mcp.tool()
+def reminder_lists() -> list[dict]:
+    """List the available reminder lists as pointers (id + name). Use a name to target writes."""
+    return [_emit(p) for p in _reminders.get_lists()]
+
+
+@mcp.tool()
+def calendars() -> list[dict]:
+    """List the available calendars as pointers (id + name). Use a name to target writes."""
+    return [_emit(p) for p in _calendar.get_calendars()]
+
+
 def _parse(s: str | None) -> datetime | None:
     """Optional ISO datetime (reminder due). Empty/absent → None."""
     return datetime.fromisoformat(s) if s else None

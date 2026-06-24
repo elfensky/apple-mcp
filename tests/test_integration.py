@@ -150,3 +150,27 @@ def test_named_list_read_excludes_completed(created):
     ids = [p.id for p in a.get_pointers(list_name)]
     assert open_item.id in ids  # incomplete item is returned
     assert done_item.id not in ids  # completed item is filtered out (the row-4 fix)
+
+
+@pytest.mark.integration
+def test_reminder_lists_enumerate():
+    """Parity row 8: enumerate reminder lists; the default list must be discoverable by name."""
+    from apple_mcp.adapters.reminders import RemindersAdapter
+
+    run_native(request_access)
+    ptrs = RemindersAdapter().get_lists()
+    assert ptrs and all(p.id and p.summary for p in ptrs)
+    default_name = run_native(lambda: store().defaultCalendarForNewReminders().title())
+    assert default_name in [p.summary for p in ptrs]
+
+
+@pytest.mark.integration
+def test_calendars_enumerate():
+    """Parity row 9: enumerate calendars; the default calendar must be discoverable by name."""
+    from apple_mcp.adapters.calendar import CalendarAdapter
+
+    run_native(request_access)
+    ptrs = CalendarAdapter().get_calendars()
+    assert ptrs and all(p.id and p.summary for p in ptrs)
+    default_name = run_native(lambda: store().defaultCalendarForNewEvents().title())
+    assert default_name in [p.summary for p in ptrs]

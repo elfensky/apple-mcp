@@ -14,10 +14,19 @@ from apple_mcp.contracts import CalendarEventData, Pointer, ReminderData
 class _FakeSource:
     def __init__(self):
         self.queries: list[str] = []
+        self.enumerated = 0
 
     def get_pointers(self, query: str) -> list[Pointer]:
         self.queries.append(query)
         return [Pointer(id="P-1", summary="s", deeplink="d")]
+
+    def get_lists(self) -> list[Pointer]:
+        self.enumerated += 1
+        return [Pointer(id="L-1", summary="Home", deeplink="")]
+
+    def get_calendars(self) -> list[Pointer]:
+        self.enumerated += 1
+        return [Pointer(id="C-1", summary="Work", deeplink="")]
 
 
 def test_server_constructs():
@@ -38,6 +47,22 @@ def test_events_tool_dispatches(monkeypatch):
     out = srv.events("week")
     assert fake.queries == ["week"]
     assert out[0]["id"] == "P-1"
+
+
+def test_reminder_lists_tool_dispatches(monkeypatch):
+    fake = _FakeSource()
+    monkeypatch.setattr(srv, "_reminders", fake)
+    out = srv.reminder_lists()
+    assert fake.enumerated == 1
+    assert out == [{"id": "L-1", "summary": "Home", "deeplink": ""}]
+
+
+def test_calendars_tool_dispatches(monkeypatch):
+    fake = _FakeSource()
+    monkeypatch.setattr(srv, "_calendar", fake)
+    out = srv.calendars()
+    assert fake.enumerated == 1
+    assert out == [{"id": "C-1", "summary": "Work", "deeplink": ""}]
 
 
 class _FakeWriter:
