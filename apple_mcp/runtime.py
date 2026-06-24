@@ -16,6 +16,7 @@ practice.
 from __future__ import annotations
 
 import logging
+import subprocess
 import threading
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -89,6 +90,39 @@ def store() -> EK.EKEventStore:
     if _store is None:
         _store = EK.EKEventStore.alloc().init()
     return _store
+
+
+# osascript is the escape hatch for apps with no PyObjC framework (Mail, Notes, etc.).
+# It runs on the SAME worker as EventKit — serialized, never concurrent — so the
+# max_workers=1 fence covers all native access. A timeout bounds it so a hung script
+# (e.g. a modal permission dialog) can't block the worker forever.
+_OSASCRIPT_TIMEOUT = 30.0  # seconds
+
+
+def run_osascript(script: str, timeout: float = _OSASCRIPT_TIMEOUT) -> str:
+    """Run an AppleScript via ``osascript`` on the native worker; return stdout.
+
+    The sanctioned escape hatch for framework-less apps (Mail/Notes/Music/Safari).
+    Raises RuntimeError on a non-zero exit (app not running, TCC denied, script error)
+    or timeout — it never returns an empty string to mask a failure as "no result".
+    Safe on or off the worker (dispatches via run_native when called off it).
+    """
+
+    def _run() -> str:
+        try:
+            proc = subprocess.run(
+                ["osascript", "-e", script],
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired as e:
+            raise RuntimeError(f"osascript timed out after {timeout}s") from e
+        if proc.returncode != 0:
+            raise RuntimeError(f"osascript failed: {proc.stderr.strip()}")
+        return proc.stdout.rstrip("\n")
+
+    return _run() if _on_worker() else run_native(_run)
 
 
 def to_nsdate(dt: datetime) -> F.NSDate:

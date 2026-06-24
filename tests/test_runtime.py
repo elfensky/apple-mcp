@@ -12,6 +12,7 @@ from apple_mcp.runtime import (
     due_components,
     from_nsdate,
     run_native,
+    run_osascript,
     store,
     to_nsdate,
 )
@@ -49,3 +50,14 @@ def test_nsdate_roundtrip():
 def test_due_components_fields():
     c = due_components(datetime(2026, 6, 23, 18, 45))
     assert (c.year(), c.month(), c.day(), c.hour(), c.minute()) == (2026, 6, 23, 18, 45)
+
+
+def test_run_osascript_returns_output():
+    # Pure AppleScript expression — no app/TCC needed, so this is CI-safe.
+    assert run_osascript('return "hello"') == "hello"
+
+
+def test_run_osascript_raises_on_error():
+    # A failing script must raise, never return "" (don't mask failures as "no result").
+    with pytest.raises(RuntimeError, match="osascript failed"):
+        run_osascript('error "boom"')
