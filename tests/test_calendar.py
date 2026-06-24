@@ -50,7 +50,7 @@ def test_pointer_shape():
     start = datetime(2026, 6, 23, 9, 0)
     e = _fake_event("Standup", "E-1", start, datetime(2026, 6, 23, 9, 15))
     p = _event_pointer(e)
-    # id = <calendarItemIdentifier>|<occurrence-start-epoch> so a single occurrence is addressable
+    # id = <calendarItemIdentifier>|<occurrence-start-epoch>: addresses one occurrence
     assert isinstance(p, Pointer)
     assert p.id == f"E-1|{int(start.timestamp())}"
     assert p.deeplink.startswith("calshow:")

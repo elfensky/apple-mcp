@@ -43,9 +43,10 @@ def _reminder_pointer(item) -> Pointer:
 
 
 def _list_pointer(cal) -> Pointer:
-    # A reminder list (container) has no verified open-in-app URL; id + name (summary) are what
-    # the projection resolves a write target against. ponytail: deeplink left empty by design —
-    # if on-device testing finds a working list URL, set it here (deeplinks are a calibration knob).
+    # A reminder list (container) has no verified open-in-app URL; id + name (summary)
+    # are what the projection resolves a write target against. ponytail: deeplink empty
+    # by design — if on-device testing finds a working list URL, set it here (deeplinks
+    # are a calibration knob).
     return Pointer(id=cal.calendarIdentifier(), summary=cal.title(), deeplink="")
 
 
@@ -76,7 +77,8 @@ def _incomplete_due_pred(s, end: datetime | None, cals):
 
     ``end=None`` → all incomplete reminders regardless of due date. The named-list path
     relies on this: the old ``predicateForRemindersInCalendars_`` leaked completed items
-    (parity row 4), so every reminder read now routes through this one incomplete-only selector.
+    (parity row 4), so every reminder read routes through this one incomplete-only
+    selector.
     """
     return s.predicateForIncompleteRemindersWithDueDateStarting_ending_calendars_(
         None, to_nsdate(end) if end is not None else None, cals
@@ -123,20 +125,22 @@ class RemindersAdapter:
                 named = [c for c in cals if c.title() == name]
                 if not named:
                     raise ValueError(f"no reminder list named {name!r}")
-                # Incomplete-only (both bounds nil), same selector as the date paths — the old
-                # predicateForRemindersInCalendars_ leaked completed reminders (parity row 4).
+                # Incomplete-only (both bounds nil), same selector as the date
+                # paths — predicateForRemindersInCalendars_ leaked completed items
+                # (parity row 4).
                 pred = _incomplete_due_pred(s, None, named)
             return [_reminder_pointer(r) for r in _fetch_reminders(s, pred)]
 
         return run_native(work)
 
     def get_lists(self) -> list[Pointer]:
-        """Enumerate reminder lists as Pointers (id + name) — resolve a name to target writes."""
+        """Reminder lists as Pointers (id + name) for resolving write targets."""
 
         def work():
             s = store()
             return [
-                _list_pointer(c) for c in s.calendarsForEntityType_(EK.EKEntityTypeReminder)
+                _list_pointer(c)
+                for c in s.calendarsForEntityType_(EK.EKEntityTypeReminder)
             ]
 
         return run_native(work)

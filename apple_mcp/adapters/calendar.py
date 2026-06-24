@@ -37,23 +37,26 @@ def _event_summary(item) -> str:
 
 
 def _event_deeplink(item) -> str:
-    # calshow:<seconds-since-2001> opens Calendar to the event's day/time (and selects it when it's the
-    # only event then). macOS has NO public scheme to open a *specific* event by id: x-apple-calevent://
-    # is unrecognized and eventIdentifier isn't URL-addressable (Apple Dev Forums #759266) — and
-    # eventIdentifier is occurrence-shared anyway. So co-starting events share a deeplink; the Pointer
-    # summary and occurrence-precise id (see _event_id) disambiguate — the deeplink only lands the slot.
+    # calshow:<seconds-since-2001> opens Calendar to the event's day/time. macOS has no
+    # public scheme to open a *specific* event by id (x-apple-calevent:// is rejected;
+    # eventIdentifier isn't URL-addressable, and is occurrence-shared). See Apple Dev
+    # Forums #759266. Co-starting events thus share a deeplink; the Pointer summary +
+    # occurrence-precise id (see _event_id) disambiguate, not the link.
     secs = int(item.startDate().timeIntervalSinceReferenceDate())
     return f"calshow:{secs}"
 
 
-# Recurring events share ONE calendarItemIdentifier across every occurrence, so the bare id can't
-# name a single occurrence. Carry the occurrence start (epoch seconds) in the pointer id and re-fetch
-# the concrete EKEvent on write (see _resolve_event) so EKSpanThisEvent targets THAT occurrence.
+# Recurring events share ONE calendarItemIdentifier across every occurrence, so the
+# bare id can't name a single occurrence. Carry the occurrence start (epoch seconds) in
+# the pointer id and re-fetch the concrete EKEvent on write (see _resolve_event), so
+# EKSpanThisEvent targets THAT occurrence.
 _OCC_SEP = "|"
 
 
 def _event_id(item) -> str:
-    return f"{item.calendarItemIdentifier()}{_OCC_SEP}{int(item.startDate().timeIntervalSince1970())}"
+    base = item.calendarItemIdentifier()
+    epoch = int(item.startDate().timeIntervalSince1970())
+    return f"{base}{_OCC_SEP}{epoch}"
 
 
 def _event_pointer(item) -> Pointer:
@@ -65,8 +68,8 @@ def _event_pointer(item) -> Pointer:
 
 
 def _calendar_pointer(cal) -> Pointer:
-    # A calendar (container) has no public per-calendar URL scheme; id + name (summary) are what
-    # the projection resolves a write target against. deeplink left empty by design.
+    # A calendar (container) has no public per-calendar URL scheme; id + name (summary)
+    # are what the projection resolves a write target against. deeplink empty by design.
     return Pointer(id=cal.calendarIdentifier(), summary=cal.title(), deeplink="")
 
 
@@ -89,15 +92,18 @@ def _apply_event(s, e, data: CalendarEventData) -> None:
 
 
 def _resolve_event(s, ident: str):
-    """Resolve a pointer id to the concrete EKEvent — the specific occurrence for recurring events.
+    """Resolve a pointer id to the concrete EKEvent (specific occurrence if recurring).
 
-    Pointer ids are ``<calendarItemIdentifier>|<occurrence-start-epoch>``. ``calendarItemWithIdentifier_``
-    returns the series *master* (shared across occurrences), so editing/deleting it with EKSpanThisEvent
-    hits the wrong occurrence. Re-fetch via a tight date-range predicate and match on
-    (calendarItemIdentifier, start) so the write targets exactly the cited occurrence.
+    Pointer ids are ``<calendarItemIdentifier>|<occurrence-start-epoch>``.
+    ``calendarItemWithIdentifier_`` returns the series *master* (shared across
+    occurrences), so editing/deleting it with EKSpanThisEvent hits the wrong occurrence.
+    Re-fetch via a tight date-range predicate and match on (calendarItemIdentifier,
+    start) so the write targets exactly the cited occurrence.
     """
     base, sep, occ = ident.rpartition(_OCC_SEP)
-    if not sep:  # legacy/plain id (no occurrence suffix) — fall back to the master lookup
+    if (
+        not sep
+    ):  # legacy/plain id (no occurrence suffix) — fall back to the master lookup
         e = s.calendarItemWithIdentifier_(ident)
         if e is None:
             raise ValueError(f"no event with id {ident!r}")
@@ -133,7 +139,7 @@ class CalendarAdapter:
         return run_native(work)
 
     def get_calendars(self) -> list[Pointer]:
-        """Enumerate calendars as Pointers (id + name) — resolve a name to target writes."""
+        """Enumerate calendars as Pointers (id + name) for resolving write targets."""
 
         def work():
             s = store()

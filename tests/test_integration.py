@@ -24,12 +24,14 @@ def created():
     def _cleanup():
         s = store()
         for kind, ident in items:
-            base = ident.rpartition("|")[0] or ident  # event ids carry an occurrence suffix
+            base = (
+                ident.rpartition("|")[0] or ident
+            )  # event ids carry an occurrence suffix
             obj = s.calendarItemWithIdentifier_(base)
             if obj is None:
                 continue
             if kind == "event":
-                # EKSpanFutureEvents so a recurring series is removed whole, not just one occurrence
+                # FutureEvents removes a recurring series whole, not one occurrence
                 s.removeEvent_span_commit_error_(obj, EK.EKSpanFutureEvents, True, None)
             else:
                 s.removeReminder_commit_error_(obj, True, None)
@@ -122,7 +124,7 @@ def test_event_create_update_delete(created):
             end=start + timedelta(hours=3),
         ),
     )
-    # moving the event changes its occurrence-encoded id suffix; the base id (event) is unchanged
+    # moving the event changes the occurrence-id suffix; the base id is unchanged
     assert p2.id.split("|")[0] == p.id.split("|")[0] and "moved" in p2.summary
 
     a.delete_event(
@@ -132,10 +134,11 @@ def test_event_create_update_delete(created):
 
 @pytest.mark.integration
 def test_named_list_read_excludes_completed(created):
-    """Parity row 4: a named-list read must return only incomplete reminders, never completed.
+    """Parity row 4: a named-list read returns only incomplete reminders.
 
-    Mocked-store unit tests can't catch this — it takes a real list with a completed item to see
-    the leak. Guards the fix that routed the named-list path through the incomplete-only selector.
+    Mocked-store unit tests can't catch this — it takes a real list with a completed
+    item to see the leak. Guards the fix routing the named-list path through the
+    incomplete-only selector.
     """
     from apple_mcp.adapters.reminders import RemindersAdapter
     from apple_mcp.contracts import ReminderData
@@ -144,9 +147,13 @@ def test_named_list_read_excludes_completed(created):
     a = RemindersAdapter()
     list_name = run_native(lambda: store().defaultCalendarForNewReminders().title())
 
-    open_item = a.create_reminder(ReminderData(title=f"{TITLE_PREFIX} open", list_name=list_name))
+    open_item = a.create_reminder(
+        ReminderData(title=f"{TITLE_PREFIX} open", list_name=list_name)
+    )
     created.append(("reminder", open_item.id))
-    done_item = a.create_reminder(ReminderData(title=f"{TITLE_PREFIX} done", list_name=list_name))
+    done_item = a.create_reminder(
+        ReminderData(title=f"{TITLE_PREFIX} done", list_name=list_name)
+    )
     created.append(("reminder", done_item.id))
     a.complete_reminder(done_item.id)
 
@@ -157,7 +164,7 @@ def test_named_list_read_excludes_completed(created):
 
 @pytest.mark.integration
 def test_reminder_lists_enumerate():
-    """Parity row 8: enumerate reminder lists; the default list must be discoverable by name."""
+    """Parity row 8: enumerate lists; the default list is discoverable by name."""
     from apple_mcp.adapters.reminders import RemindersAdapter
 
     run_native(request_access)
@@ -169,7 +176,7 @@ def test_reminder_lists_enumerate():
 
 @pytest.mark.integration
 def test_calendars_enumerate():
-    """Parity row 9: enumerate calendars; the default calendar must be discoverable by name."""
+    """Parity row 9: enumerate calendars; the default is discoverable by name."""
     from apple_mcp.adapters.calendar import CalendarAdapter
 
     run_native(request_access)
@@ -181,11 +188,12 @@ def test_calendars_enumerate():
 
 @pytest.mark.integration
 def test_recurring_event_update_targets_one_occurrence(created):
-    """#8: editing by an occurrence's pointer id changes only THAT occurrence, not the series.
+    """#8: editing by an occurrence's pointer id changes only THAT occurrence.
 
-    The bug a mocked store can't catch: all occurrences share one calendarItemIdentifier, so the
-    old calendarItemWithIdentifier_ path edited the series master. Create a 3-day daily series,
-    edit the middle occurrence by its pointer id, assert days 0 and 2 are untouched.
+    The bug a mocked store can't catch: all occurrences share one
+    calendarItemIdentifier, so the old calendarItemWithIdentifier_ path edited the
+    series master. Create a 3-day daily series, edit the middle occurrence by its
+    pointer id, assert days 0 and 2 are untouched.
     """
     from datetime import datetime, timedelta
 
@@ -196,7 +204,9 @@ def test_recurring_event_update_targets_one_occurrence(created):
     run_native(request_access)
     a = CalendarAdapter()
     days = [
-        (datetime.now() + timedelta(days=2)).replace(hour=9, minute=0, second=0, microsecond=0)
+        (datetime.now() + timedelta(days=2)).replace(
+            hour=9, minute=0, second=0, microsecond=0
+        )
         + timedelta(days=d)
         for d in range(3)
     ]
@@ -208,7 +218,9 @@ def test_recurring_event_update_targets_one_occurrence(created):
         e.setStartDate_(to_nsdate(days[0]))
         e.setEndDate_(to_nsdate(days[0] + timedelta(hours=1)))
         e.setCalendar_(s.defaultCalendarForNewEvents())
-        end = EK.EKRecurrenceEnd.recurrenceEndWithEndDate_(to_nsdate(days[2] + timedelta(hours=2)))
+        end = EK.EKRecurrenceEnd.recurrenceEndWithEndDate_(
+            to_nsdate(days[2] + timedelta(hours=2))
+        )
         rule = EK.EKRecurrenceRule.alloc().initRecurrenceWithFrequency_interval_end_(
             EK.EKRecurrenceFrequencyDaily, 1, end
         )
@@ -221,9 +233,17 @@ def test_recurring_event_update_targets_one_occurrence(created):
     created.append(("event", run_native(_make_series)))
 
     def titles_on(day):
-        return [p.summary for p in a.get_pointers(day.strftime("%Y-%m-%d")) if "recurring" in p.summary]
+        return [
+            p.summary
+            for p in a.get_pointers(day.strftime("%Y-%m-%d"))
+            if "recurring" in p.summary
+        ]
 
-    mid = [p for p in a.get_pointers(days[1].strftime("%Y-%m-%d")) if "recurring" in p.summary]
+    mid = [
+        p
+        for p in a.get_pointers(days[1].strftime("%Y-%m-%d"))
+        if "recurring" in p.summary
+    ]
     assert len(mid) == 1  # one occurrence on the middle day
 
     a.update_event(
