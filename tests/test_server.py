@@ -175,3 +175,20 @@ def test_create_event_rejects_empty_start():
     # worker-thread crash.
     with pytest.raises(ValueError, match="ISO datetime"):
         srv.create_event("Standup", start="", end="2026-06-24T09:15:00")
+
+
+@pytest.mark.parametrize("val", ["1", "true", "TRUE", "yes", "Yes"])
+def test_read_only_truthy(monkeypatch, val):
+    monkeypatch.setenv("APPLE_MCP_READ_ONLY", val)
+    assert srv._read_only() is True
+
+
+@pytest.mark.parametrize("val", ["", "0", "no", "false", "off"])
+def test_read_only_falsy(monkeypatch, val):
+    monkeypatch.setenv("APPLE_MCP_READ_ONLY", val)
+    assert srv._read_only() is False
+
+
+def test_read_only_unset_is_false(monkeypatch):
+    monkeypatch.delenv("APPLE_MCP_READ_ONLY", raising=False)
+    assert srv._read_only() is False
