@@ -23,6 +23,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import TypeVar
 
+import Contacts as CN
 import EventKit as EK
 import Foundation as F
 
@@ -90,6 +91,25 @@ def store() -> EK.EKEventStore:
     if _store is None:
         _store = EK.EKEventStore.alloc().init()
     return _store
+
+
+_contacts_store: CN.CNContactStore | None = None
+
+
+def contacts_store() -> CN.CNContactStore:
+    """The one process-wide CNContactStore, lazily created on the worker.
+
+    Sibling to store(): owned by runtime, same worker + lazy-init + worker guard.
+    Contacts is a distinct TCC entity/store, so it gets its own accessor, not store()'s.
+    """
+    global _contacts_store
+    if not _on_worker():
+        raise RuntimeError(
+            "contacts_store() must run on the apple-native worker — use run_native()"
+        )
+    if _contacts_store is None:
+        _contacts_store = CN.CNContactStore.alloc().init()
+    return _contacts_store
 
 
 # osascript is the escape hatch for apps with no PyObjC framework (Mail, Notes, etc.).
@@ -210,12 +230,32 @@ def request_access() -> None:
         _request_one(s, entity)
 
 
+def request_contacts_access() -> None:
+    """Ensure Contacts access; raises AccessDenied if not granted (call on worker)."""
+    entity = CN.CNEntityTypeContacts
+    status = CN.CNContactStore.authorizationStatusForEntityType_(entity)
+    if status == CN.CNAuthorizationStatusNotDetermined:
+        cs = contacts_store()
+
+        def start(finish):
+            cs.requestAccessForEntityType_completionHandler_(
+                entity, lambda granted, error: finish(granted)
+            )
+
+        run_native_async(start, timeout=_ACCESS_TIMEOUT)
+        status = CN.CNContactStore.authorizationStatusForEntityType_(entity)
+    if status != CN.CNAuthorizationStatusAuthorized:
+        raise AccessDenied(
+            "apple-mcp needs Contacts access. Grant it in System Settings → Privacy & "
+            "Security → Contacts, then restart apple-mcp."
+        )
+
+
 def bootstrap() -> None:
     """Startup hook: create the store + request each TCC surface on the worker.
 
     Each surface is requested independently and **non-fatally** — a denied permission
-    disables only that adapter (which raises on use), never the server. Future adapters
-    (Contacts, Photos) add their own surface here via the same try/except pattern.
+    disables only that adapter (which raises on use), never the server.
     """
 
     def _request_all() -> None:
@@ -225,5 +265,9 @@ def bootstrap() -> None:
                 _request_one(s, entity)
             except AccessDenied as e:
                 log.warning("apple-mcp starting without one EventKit surface: %s", e)
+        try:
+            request_contacts_access()
+        except AccessDenied as e:
+            log.warning("apple-mcp starting without Contacts access: %s", e)
 
     run_native(_request_all)

@@ -258,3 +258,39 @@ def test_recurring_event_update_targets_one_occurrence(created):
     assert any("EDITED" in t for t in titles_on(days[1]))  # middle occurrence changed
     assert all("EDITED" not in t for t in titles_on(days[0]))  # day 0 untouched
     assert all("EDITED" not in t for t in titles_on(days[2]))  # day 2 untouched
+
+
+@pytest.mark.integration
+def test_contacts_create_find_delete():
+    """#15: create a contact, find it, delete it. Needs Contacts TCC (prompts once)."""
+    import Contacts as CN
+
+    from apple_mcp.adapters.contacts import ContactsAdapter
+    from apple_mcp.contracts import ContactData
+    from apple_mcp.runtime import contacts_store, request_contacts_access
+
+    run_native(request_contacts_access)
+    a = ContactsAdapter()
+    p = a.create_contact(
+        ContactData(
+            given_name="apple-mcp-test",
+            family_name="ZZContact",
+            organization="apple-mcp",
+        )
+    )
+    try:
+        assert p.id and "ZZContact" in p.summary
+        assert any(x.id == p.id for x in a.get_pointers("ZZContact"))
+    finally:
+
+        def _delete():
+            cs = contacts_store()
+            c, _err = cs.unifiedContactWithIdentifier_keysToFetch_error_(
+                p.id, [CN.CNContactGivenNameKey], None
+            )
+            if c is not None:
+                req = CN.CNSaveRequest.alloc().init()
+                req.deleteContact_(c.mutableCopy())
+                cs.executeSaveRequest_error_(req, None)
+
+        run_native(_delete)

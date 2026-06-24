@@ -71,3 +71,12 @@ class CalendarEventData:
     calendar: str | None = None
     location: str | None = None
     notes: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ContactData:
+    """Payload for creating an Apple Contact (name + org; v1 keeps it minimal)."""
+
+    given_name: str
+    family_name: str | None = None
+    organization: str | None = None
