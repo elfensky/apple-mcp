@@ -73,3 +73,14 @@ def test_run_native_async_times_out():
     # a callback that never fires must raise, not hang the caller.
     with pytest.raises(TimeoutError):
         run_native_async(lambda finish: None, timeout=0.1)
+
+
+def test_bootstrap_is_nonfatal_on_denied_surface(monkeypatch):
+    # #13 safe-mode: a denied TCC surface must not crash startup.
+    import apple_mcp.runtime as rt
+
+    def deny(_s, _entity):
+        raise rt.AccessDenied("denied")
+
+    monkeypatch.setattr(rt, "_request_one", deny)
+    rt.bootstrap()  # returns without raising despite every surface being denied

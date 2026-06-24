@@ -198,18 +198,32 @@ def _request_one(s: EK.EKEventStore, entity: int) -> None:
     _decide(status)
 
 
+# EventKit TCC surfaces requested at startup. Adapters with their own permission
+# (Contacts, Photos) add a separate non-fatal bootstrap step following this pattern.
+_ENTITIES = (EK.EKEntityTypeEvent, EK.EKEntityTypeReminder)
+
+
 def request_access() -> None:
-    """Ensure full Calendar + Reminders access. Call via run_native (runs on the
-    worker)."""
+    """Ensure full Calendar + Reminders access; raises AccessDenied on any."""
     s = store()
-    _request_one(s, EK.EKEntityTypeEvent)
-    _request_one(s, EK.EKEntityTypeReminder)
+    for entity in _ENTITIES:
+        _request_one(s, entity)
 
 
 def bootstrap() -> None:
-    """Startup hook: create the store + request access on the worker. Denial is
-    non-fatal."""
-    try:
-        run_native(request_access)
-    except AccessDenied as e:
-        log.warning("apple-mcp starting without EventKit access: %s", e)
+    """Startup hook: create the store + request each TCC surface on the worker.
+
+    Each surface is requested independently and **non-fatally** — a denied permission
+    disables only that adapter (which raises on use), never the server. Future adapters
+    (Contacts, Photos) add their own surface here via the same try/except pattern.
+    """
+
+    def _request_all() -> None:
+        s = store()
+        for entity in _ENTITIES:
+            try:
+                _request_one(s, entity)
+            except AccessDenied as e:
+                log.warning("apple-mcp starting without one EventKit surface: %s", e)
+
+    run_native(_request_all)
