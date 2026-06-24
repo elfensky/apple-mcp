@@ -47,13 +47,13 @@ def test_summary_all_day():
 
 
 def test_pointer_shape():
-    e = _fake_event(
-        "Standup", "E-1", datetime(2026, 6, 23, 9, 0), datetime(2026, 6, 23, 9, 15)
-    )
+    start = datetime(2026, 6, 23, 9, 0)
+    e = _fake_event("Standup", "E-1", start, datetime(2026, 6, 23, 9, 15))
     p = _event_pointer(e)
-    assert (
-        isinstance(p, Pointer) and p.id == "E-1" and p.deeplink.startswith("calshow:")
-    )
+    # id = <calendarItemIdentifier>|<occurrence-start-epoch> so a single occurrence is addressable
+    assert isinstance(p, Pointer)
+    assert p.id == f"E-1|{int(start.timestamp())}"
+    assert p.deeplink.startswith("calshow:")
 
 
 def test_range_today_is_one_day():

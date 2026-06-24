@@ -43,9 +43,19 @@ def _event_deeplink(item) -> str:
     return f"calshow:{secs}"
 
 
+# Recurring events share ONE calendarItemIdentifier across every occurrence, so the bare id can't
+# name a single occurrence. Carry the occurrence start (epoch seconds) in the pointer id and re-fetch
+# the concrete EKEvent on write (see _resolve_event) so EKSpanThisEvent targets THAT occurrence.
+_OCC_SEP = "|"
+
+
+def _event_id(item) -> str:
+    return f"{item.calendarItemIdentifier()}{_OCC_SEP}{int(item.startDate().timeIntervalSince1970())}"
+
+
 def _event_pointer(item) -> Pointer:
     return Pointer(
-        id=item.calendarItemIdentifier(),
+        id=_event_id(item),
         summary=_event_summary(item),
         deeplink=_event_deeplink(item),
     )
@@ -73,6 +83,36 @@ def _apply_event(s, e, data: CalendarEventData) -> None:
     e.setLocation_(data.location)  # full-replace: None clears
     e.setNotes_(data.notes)  # full-replace: None clears
     e.setCalendar_(_resolve_calendar(s, data.calendar))
+
+
+def _resolve_event(s, ident: str):
+    """Resolve a pointer id to the concrete EKEvent — the specific occurrence for recurring events.
+
+    Pointer ids are ``<calendarItemIdentifier>|<occurrence-start-epoch>``. ``calendarItemWithIdentifier_``
+    returns the series *master* (shared across occurrences), so editing/deleting it with EKSpanThisEvent
+    hits the wrong occurrence. Re-fetch via a tight date-range predicate and match on
+    (calendarItemIdentifier, start) so the write targets exactly the cited occurrence.
+    """
+    base, sep, occ = ident.rpartition(_OCC_SEP)
+    if not sep:  # legacy/plain id (no occurrence suffix) — fall back to the master lookup
+        e = s.calendarItemWithIdentifier_(ident)
+        if e is None:
+            raise ValueError(f"no event with id {ident!r}")
+        return e
+    occ_epoch = int(occ)
+    occ_start = datetime.fromtimestamp(occ_epoch)
+    pred = s.predicateForEventsWithStartDate_endDate_calendars_(
+        to_nsdate(occ_start - timedelta(seconds=1)),
+        to_nsdate(occ_start + timedelta(seconds=1)),
+        None,
+    )
+    for e in s.eventsMatchingPredicate_(pred) or []:
+        if (
+            e.calendarItemIdentifier() == base
+            and int(e.startDate().timeIntervalSince1970()) == occ_epoch
+        ):
+            return e
+    raise ValueError(f"no event occurrence for id {ident!r}")
 
 
 class CalendarAdapter:
@@ -116,9 +156,7 @@ class CalendarAdapter:
     def update_event(self, ident: str, data: CalendarEventData) -> Pointer:
         def work():
             s = store()
-            e = s.calendarItemWithIdentifier_(ident)
-            if e is None:
-                raise ValueError(f"no event with id {ident!r}")
+            e = _resolve_event(s, ident)
             _apply_event(s, e, data)
             ok, err = s.saveEvent_span_commit_error_(e, EK.EKSpanThisEvent, True, None)
             if not ok:
@@ -130,9 +168,7 @@ class CalendarAdapter:
     def delete_event(self, ident: str) -> None:
         def work():
             s = store()
-            e = s.calendarItemWithIdentifier_(ident)
-            if e is None:
-                raise ValueError(f"no event with id {ident!r}")
+            e = _resolve_event(s, ident)
             ok, err = s.removeEvent_span_commit_error_(
                 e, EK.EKSpanThisEvent, True, None
             )

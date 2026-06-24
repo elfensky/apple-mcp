@@ -24,11 +24,13 @@ def created():
     def _cleanup():
         s = store()
         for kind, ident in items:
-            obj = s.calendarItemWithIdentifier_(ident)
+            base = ident.rpartition("|")[0] or ident  # event ids carry an occurrence suffix
+            obj = s.calendarItemWithIdentifier_(base)
             if obj is None:
                 continue
             if kind == "event":
-                s.removeEvent_span_commit_error_(obj, EK.EKSpanThisEvent, True, None)
+                # EKSpanFutureEvents so a recurring series is removed whole, not just one occurrence
+                s.removeEvent_span_commit_error_(obj, EK.EKSpanFutureEvents, True, None)
             else:
                 s.removeReminder_commit_error_(obj, True, None)
 
@@ -120,11 +122,12 @@ def test_event_create_update_delete(created):
             end=start + timedelta(hours=3),
         ),
     )
-    assert p2.id == p.id and "moved" in p2.summary
+    # moving the event changes its occurrence-encoded id suffix; the base id (event) is unchanged
+    assert p2.id.split("|")[0] == p.id.split("|")[0] and "moved" in p2.summary
 
     a.delete_event(
-        p.id
-    )  # explicit delete; teardown is a no-op for an already-deleted id
+        p2.id
+    )  # delete by the post-move id; teardown is a no-op for an already-deleted id
 
 
 @pytest.mark.integration
@@ -174,3 +177,64 @@ def test_calendars_enumerate():
     assert ptrs and all(p.id and p.summary for p in ptrs)
     default_name = run_native(lambda: store().defaultCalendarForNewEvents().title())
     assert default_name in [p.summary for p in ptrs]
+
+
+@pytest.mark.integration
+def test_recurring_event_update_targets_one_occurrence(created):
+    """#8: editing by an occurrence's pointer id changes only THAT occurrence, not the series.
+
+    The bug a mocked store can't catch: all occurrences share one calendarItemIdentifier, so the
+    old calendarItemWithIdentifier_ path edited the series master. Create a 3-day daily series,
+    edit the middle occurrence by its pointer id, assert days 0 and 2 are untouched.
+    """
+    from datetime import datetime, timedelta
+
+    from apple_mcp.adapters.calendar import CalendarAdapter
+    from apple_mcp.contracts import CalendarEventData
+    from apple_mcp.runtime import to_nsdate
+
+    run_native(request_access)
+    a = CalendarAdapter()
+    days = [
+        (datetime.now() + timedelta(days=2)).replace(hour=9, minute=0, second=0, microsecond=0)
+        + timedelta(days=d)
+        for d in range(3)
+    ]
+
+    def _make_series():
+        s = store()
+        e = EK.EKEvent.eventWithEventStore_(s)
+        e.setTitle_(f"{TITLE_PREFIX} recurring")
+        e.setStartDate_(to_nsdate(days[0]))
+        e.setEndDate_(to_nsdate(days[0] + timedelta(hours=1)))
+        e.setCalendar_(s.defaultCalendarForNewEvents())
+        end = EK.EKRecurrenceEnd.recurrenceEndWithEndDate_(to_nsdate(days[2] + timedelta(hours=2)))
+        rule = EK.EKRecurrenceRule.alloc().initRecurrenceWithFrequency_interval_end_(
+            EK.EKRecurrenceFrequencyDaily, 1, end
+        )
+        e.setRecurrenceRules_([rule])
+        ok, err = s.saveEvent_span_commit_error_(e, EK.EKSpanFutureEvents, True, None)
+        if not ok:
+            raise RuntimeError(f"create recurring failed: {err}")
+        return e.calendarItemIdentifier()
+
+    created.append(("event", run_native(_make_series)))
+
+    def titles_on(day):
+        return [p.summary for p in a.get_pointers(day.strftime("%Y-%m-%d")) if "recurring" in p.summary]
+
+    mid = [p for p in a.get_pointers(days[1].strftime("%Y-%m-%d")) if "recurring" in p.summary]
+    assert len(mid) == 1  # one occurrence on the middle day
+
+    a.update_event(
+        mid[0].id,
+        CalendarEventData(
+            title=f"{TITLE_PREFIX} recurring EDITED",
+            start=days[1],
+            end=days[1] + timedelta(hours=1),
+        ),
+    )
+
+    assert any("EDITED" in t for t in titles_on(days[1]))  # middle occurrence changed
+    assert all("EDITED" not in t for t in titles_on(days[0]))  # day 0 untouched
+    assert all("EDITED" not in t for t in titles_on(days[2]))  # day 2 untouched
