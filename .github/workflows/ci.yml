@@ -1,0 +1,30 @@
+name: ci
+
+# Lint + format gate the tests (the ruff steps run before pytest, so a lint failure stops the job
+# early). Single job on macos-latest: PyObjC is macOS-only, so `uv sync` can't run on Linux, and
+# integration/TCC tests never run in CI (the default pytest addopts deselect them). Lint-gate practice
+# imported from the sibling repos (lintle, descent-engine); kept to one job because apple-mcp has no
+# Python-version matrix to fan a shared lint leg across.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run pytest

@@ -13,9 +13,14 @@ Mail MCP) with a single modular adapter layer you own.
 
 ```sh
 uv sync
-uv run pytest -q          # unit tests (mock at the adapter boundary)
+uv run pytest             # unit tests (mock at the adapter boundary)
+uv run ruff check .       # lint (config in pyproject.toml)
+uv run ruff format .      # format
 uv run apple-mcp          # run the server (stdio)
 ```
+
+ruff (lint + format, line-length 88) and pytest gate CI — full workflow in
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Use as an MCP server
 

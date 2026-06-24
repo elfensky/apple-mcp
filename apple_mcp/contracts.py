@@ -1,15 +1,19 @@
 """Adapter contracts — the boundary every Apple-app adapter implements.
 
-Settled by design (adversarial debate): **reads are uniform, writes are per-adapter typed.**
+Settled by design (adversarial debate): **reads are uniform, writes are per-adapter
+typed.**
 
-- Every adapter is a ``PointerSource``: ``get_pointers(query) -> list[Pointer]``. That is the only
-  shape the cockpit needs on the read side (surface *what exists*, as citable handles).
+- Every adapter is a ``PointerSource``: ``get_pointers(query) -> list[Pointer]``. That
+  is the only shape the cockpit needs on the read side (surface *what exists*, as
+  citable handles).
 - Writes are **typed per-adapter methods** (``create_reminder(ReminderData)``,
-  ``create_event(CalendarEventData)``) — never a stringly-typed ``create_item(dict)``, which rots
-  into ``list`` vs ``list_id`` vs ``listId`` and is invisible to the type checker.
+  ``create_event(CalendarEventData)``) — never a stringly-typed ``create_item(dict)``,
+  which rots into ``list`` vs ``list_id`` vs ``listId`` and is invisible to the type
+  checker.
 
-``Pointer`` mirrors the cockpit's citation grammar (``conventions.md``: ``[src:: system:id]`` + an
-open-in-app deeplink) — *pointers, not payload*: a citable handle, never the full body.
+``Pointer`` mirrors the cockpit's citation grammar (``conventions.md``: ``[src::
+system:id]`` + an open-in-app deeplink) — *pointers, not payload*: a citable handle,
+never the full body.
 """
 
 from __future__ import annotations
@@ -37,14 +41,15 @@ class Pointer:
 class PointerSource(Protocol):
     """The uniform READ side: every adapter answers queries with Pointers.
 
-    Structural (``Protocol``), not an ABC — fakes satisfy it without inheritance, which is what
-    keeps the tool layer unit-testable by mocking at this boundary.
+    Structural (``Protocol``), not an ABC — fakes satisfy it without inheritance, which
+    is what keeps the tool layer unit-testable by mocking at this boundary.
     """
 
     def get_pointers(self, query: str) -> list[Pointer]: ...
 
 
-# --- per-adapter typed WRITE payloads (reads uniform, writes typed) -----------------------------
+# --- per-adapter typed WRITE payloads (reads uniform, writes typed) ------------------
+
 
 @dataclass(frozen=True, slots=True)
 class ReminderData:

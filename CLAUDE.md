@@ -22,9 +22,24 @@ Full design and rationale: [DESIGN.md](DESIGN.md).
 
 ```sh
 uv sync
-uv run pytest -q                # unit tests — mock at the adapter boundary (Protocol fakes)
+uv run pytest                   # unit tests — mock at the adapter boundary (Protocol fakes)
 uv run pytest -m integration    # real macOS / EventKit / TCC — run manually, NEVER in CI
+uv run ruff check .             # lint
+uv run ruff format .            # format
 uv run apple-mcp                # run the server (stdio)
+```
+
+**Code style.** `ruff` for lint + format (config in `pyproject.toml`): line-length 88, rules
+`E, F, I, UP, B, SIM` — same setup as the sibling repos (`lintle`, `descent-engine`). No mypy
+(neither sibling uses one); the Protocol seam keeps the tool layer testable without it.
+
+**Verification.** After completing edits, run these before reporting success — if any fail, report
+the actual output, do not suppress or simplify failures:
+
+```sh
+uv run pytest
+uv run ruff check .
+uv run ruff format --check .
 ```
 
 ## Life cockpit

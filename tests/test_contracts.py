@@ -1,4 +1,5 @@
-"""Unit tests for the adapter contract + native runtime — the test seam is the adapter boundary."""
+"""Unit tests for the adapter contract + native runtime — the test seam is the
+adapter boundary."""
 
 from __future__ import annotations
 
@@ -12,15 +13,24 @@ from apple_mcp.runtime import run_native
 
 
 class FakeReminders:
-    """Satisfies PointerSource structurally — no native calls. This is how the tool layer is mocked."""
+    """Satisfies PointerSource structurally — no native calls. This is how the
+    tool layer is mocked."""
 
     def get_pointers(self, query: str) -> list[Pointer]:
-        return [Pointer(id="x-1", summary=f"reminder ~ {query}", deeplink="x-apple-reminderkit://x-1")]
+        return [
+            Pointer(
+                id="x-1",
+                summary=f"reminder ~ {query}",
+                deeplink="x-apple-reminderkit://x-1",
+            )
+        ]
 
 
 def test_fake_satisfies_pointersource():
     fake = FakeReminders()
-    assert isinstance(fake, PointerSource)  # runtime_checkable structural match — no inheritance
+    assert isinstance(
+        fake, PointerSource
+    )  # runtime_checkable structural match — no inheritance
     ptrs = fake.get_pointers("dentist")
     assert ptrs[0].id == "x-1"
     assert ptrs[0].deeplink.startswith("x-apple")
@@ -36,7 +46,11 @@ def test_typed_write_payload_defaults():
     r = ReminderData(title="Call dentist")
     assert r.due is None and r.list_name is None
 
-    e = CalendarEventData(title="Standup", start=datetime(2026, 6, 24, 9), end=datetime(2026, 6, 24, 9, 15))
+    e = CalendarEventData(
+        title="Standup",
+        start=datetime(2026, 6, 24, 9),
+        end=datetime(2026, 6, 24, 9, 15),
+    )
     assert e.calendar is None and e.location is None
 
 
