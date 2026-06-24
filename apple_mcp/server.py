@@ -1,10 +1,12 @@
 """apple-mcp — FastMCP server.
 
-Tools are *thin dispatch* to adapters (see contracts.py).
+Tools are *thin dispatch* to adapters (see contracts.py). Set APPLE_MCP_READ_ONLY=1 to
+register reads only (the destructive write tools are skipped) — a safe-deploy guard.
 """
 
 from __future__ import annotations
 
+import os
 from datetime import datetime
 
 from fastmcp import FastMCP
@@ -21,6 +23,17 @@ _calendar = CalendarAdapter()
 
 def _emit(p: Pointer) -> dict[str, str]:
     return {"id": p.id, "summary": p.summary, "deeplink": p.deeplink}
+
+
+def _read_only() -> bool:
+    """True when APPLE_MCP_READ_ONLY is set; writes are then not registered."""
+    val = os.environ.get("APPLE_MCP_READ_ONLY", "").strip().lower()
+    return val in ("1", "true", "yes")
+
+
+def _write_tool(fn):
+    """Register a destructive tool — skipped in read-only mode (safe-deploy guard)."""
+    return fn if _read_only() else mcp.tool()(fn)
 
 
 @mcp.tool()
@@ -72,7 +85,7 @@ def _parse_required(label: str, s: str) -> datetime:
         ) from e
 
 
-@mcp.tool()
+@_write_tool
 def create_reminder(
     title: str,
     due: str | None = None,
@@ -84,7 +97,7 @@ def create_reminder(
     return _emit(_reminders.create_reminder(data))
 
 
-@mcp.tool()
+@_write_tool
 def update_reminder(
     id: str,
     title: str,
@@ -97,13 +110,13 @@ def update_reminder(
     return _emit(_reminders.update_reminder(id, data))
 
 
-@mcp.tool()
+@_write_tool
 def complete_reminder(id: str) -> dict:
     """Mark a reminder complete by id."""
     return _emit(_reminders.complete_reminder(id))
 
 
-@mcp.tool()
+@_write_tool
 def create_event(
     title: str,
     start: str,
@@ -124,7 +137,7 @@ def create_event(
     return _emit(_calendar.create_event(data))
 
 
-@mcp.tool()
+@_write_tool
 def update_event(
     id: str,
     title: str,
@@ -146,7 +159,7 @@ def update_event(
     return _emit(_calendar.update_event(id, data))
 
 
-@mcp.tool()
+@_write_tool
 def delete_event(id: str) -> dict:
     """Delete a calendar event by id."""
     _calendar.delete_event(id)
