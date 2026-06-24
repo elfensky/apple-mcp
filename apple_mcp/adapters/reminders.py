@@ -6,13 +6,12 @@ Reads return Pointers; writes take ``ReminderData``. All EventKit access goes th
 
 from __future__ import annotations
 
-import threading
 from datetime import datetime, timedelta
 
 import EventKit as EK
 
 from ..contracts import Pointer, ReminderData
-from ..runtime import due_components, run_native, store, to_nsdate
+from ..runtime import due_components, run_native, run_native_async, store, to_nsdate
 
 # A fetch has no user interaction, so the GCD callback should arrive quickly. Bound the
 # wait so a callback that never fires can't hang the single worker — and every later
@@ -51,21 +50,14 @@ def _list_pointer(cal) -> Pointer:
 
 
 def _fetch_reminders(s, predicate) -> list:
-    """fetchRemindersMatchingPredicate_completion_ is async — block on the callback (on
-    the worker)."""
-    done = threading.Event()
-    box: dict[str, list] = {}
+    """fetchRemindersMatchingPredicate_completion_ is async — block on the callback."""
 
-    def handler(reminders, _box=box, _done=done):
-        _box["items"] = list(reminders or [])
-        _done.set()
-
-    s.fetchRemindersMatchingPredicate_completion_(predicate, handler)
-    if not done.wait(timeout=_FETCH_TIMEOUT):
-        raise TimeoutError(
-            "EventKit fetchRemindersMatchingPredicate callback never fired"
+    def start(finish):
+        s.fetchRemindersMatchingPredicate_completion_(
+            predicate, lambda reminders: finish(list(reminders or []))
         )
-    return box["items"]
+
+    return run_native_async(start, timeout=_FETCH_TIMEOUT)
 
 
 def _end_of_day(dt: datetime) -> datetime:

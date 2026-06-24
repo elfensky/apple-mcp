@@ -12,6 +12,7 @@ from apple_mcp.runtime import (
     due_components,
     from_nsdate,
     run_native,
+    run_native_async,
     run_osascript,
     store,
     to_nsdate,
@@ -61,3 +62,14 @@ def test_run_osascript_raises_on_error():
     # A failing script must raise, never return "" (don't mask failures as "no result").
     with pytest.raises(RuntimeError, match="osascript failed"):
         run_osascript('error "boom"')
+
+
+def test_run_native_async_returns_result():
+    # start() invokes the completion immediately; the result flows back through finish.
+    assert run_native_async(lambda finish: finish("ok")) == "ok"
+
+
+def test_run_native_async_times_out():
+    # a callback that never fires must raise, not hang the caller.
+    with pytest.raises(TimeoutError):
+        run_native_async(lambda finish: None, timeout=0.1)
