@@ -12,13 +12,15 @@ from datetime import datetime
 from fastmcp import FastMCP
 
 from .adapters.calendar import CalendarAdapter
+from .adapters.contacts import ContactsAdapter
 from .adapters.reminders import RemindersAdapter
-from .contracts import CalendarEventData, Pointer, ReminderData
+from .contracts import CalendarEventData, ContactData, Pointer, ReminderData
 
 mcp = FastMCP("apple-mcp")
 
 _reminders = RemindersAdapter()
 _calendar = CalendarAdapter()
+_contacts = ContactsAdapter()
 
 
 def _emit(p: Pointer) -> dict[str, str]:
@@ -64,6 +66,12 @@ def reminder_lists() -> list[dict]:
 def calendars() -> list[dict]:
     """List calendars as pointers (id + name); use a name to target writes."""
     return [_emit(p) for p in _calendar.get_calendars()]
+
+
+@mcp.tool()
+def contacts(name: str) -> list[dict]:
+    """Find contacts by name (substring). Returns pointers (id + name/org)."""
+    return [_emit(p) for p in _contacts.get_pointers(name)]
 
 
 def _parse(s: str | None) -> datetime | None:
@@ -164,6 +172,19 @@ def delete_event(id: str) -> dict:
     """Delete a calendar event by id."""
     _calendar.delete_event(id)
     return {"deleted": id}
+
+
+@_write_tool
+def create_contact(
+    given_name: str,
+    family_name: str | None = None,
+    organization: str | None = None,
+) -> dict:
+    """Create a contact (given/family name + organization)."""
+    data = ContactData(
+        given_name=given_name, family_name=family_name, organization=organization
+    )
+    return _emit(_contacts.create_contact(data))
 
 
 def main() -> None:

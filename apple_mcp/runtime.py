@@ -99,10 +99,12 @@ def store() -> EK.EKEventStore:
 _OSASCRIPT_TIMEOUT = 30.0  # seconds
 
 
-def run_osascript(script: str, timeout: float = _OSASCRIPT_TIMEOUT) -> str:
+def run_osascript(script: str, *args: str, timeout: float = _OSASCRIPT_TIMEOUT) -> str:
     """Run an AppleScript via ``osascript`` on the native worker; return stdout.
 
-    The sanctioned escape hatch for framework-less apps (Mail/Notes/Music/Safari).
+    The sanctioned escape hatch for framework-less apps (Mail/Notes/Contacts/Music).
+    ``args`` are passed to the script's ``on run argv`` handler — put any user input
+    (names, ids) there so values are never interpolated into the script (no injection).
     Raises RuntimeError on a non-zero exit (app not running, TCC denied, script error)
     or timeout — it never returns an empty string to mask a failure as "no result".
     Safe on or off the worker (dispatches via run_native when called off it).
@@ -111,7 +113,7 @@ def run_osascript(script: str, timeout: float = _OSASCRIPT_TIMEOUT) -> str:
     def _run() -> str:
         try:
             proc = subprocess.run(
-                ["osascript", "-e", script],
+                ["osascript", "-e", script, *args],
                 capture_output=True,
                 text=True,
                 timeout=timeout,
@@ -214,8 +216,7 @@ def bootstrap() -> None:
     """Startup hook: create the store + request each TCC surface on the worker.
 
     Each surface is requested independently and **non-fatally** — a denied permission
-    disables only that adapter (which raises on use), never the server. Future adapters
-    (Contacts, Photos) add their own surface here via the same try/except pattern.
+    disables only that adapter (which raises on use), never the server.
     """
 
     def _request_all() -> None:

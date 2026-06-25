@@ -258,3 +258,33 @@ def test_recurring_event_update_targets_one_occurrence(created):
     assert any("EDITED" in t for t in titles_on(days[1]))  # middle occurrence changed
     assert all("EDITED" not in t for t in titles_on(days[0]))  # day 0 untouched
     assert all("EDITED" not in t for t in titles_on(days[2]))  # day 2 untouched
+
+
+@pytest.mark.integration
+def test_contacts_create_find_delete():
+    """#15: osascript Contacts — create, find by name, delete (Automation TCC)."""
+    from apple_mcp.adapters.contacts import ContactsAdapter
+    from apple_mcp.contracts import ContactData
+    from apple_mcp.runtime import run_osascript
+
+    a = ContactsAdapter()
+    p = a.create_contact(
+        ContactData(
+            given_name="apple-mcp-test",
+            family_name="ZZContact",
+            organization="apple-mcp",
+        )
+    )
+    try:
+        assert p.id and "ZZContact" in p.summary
+        assert any(x.id == p.id for x in a.get_pointers("ZZContact"))
+    finally:
+        run_osascript(
+            "on run argv\n"
+            '  tell application "Contacts"\n'
+            "    delete (first person whose id is (item 1 of argv))\n"
+            "    save\n"
+            "  end tell\n"
+            "end run",
+            p.id,
+        )

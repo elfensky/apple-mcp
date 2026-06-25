@@ -6,8 +6,10 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "fastmcp>=2.0",
-    "pyobjc-framework-EventKit>=10.0",   # Calendar + Reminders (v1)
+    "pyobjc-framework-EventKit>=10.0",    # Calendar + Reminders (v1)
 ]
+# Contacts (#15) uses osascript/Automation (Contacts.app AppleScript dictionary), not the
+# Contacts framework — a non-bundled server can't get CNContactStore TCC, but Automation works.
 
 # Photos extra deferred: osxphotos pins pyobjc-core<10, which conflicts with EventKit's pyobjc-core.
 # Media lives in Immich anyway — revisit only if an Apple Photos adapter is ever truly needed.

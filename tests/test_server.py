@@ -8,7 +8,7 @@ from datetime import datetime
 import pytest
 
 import apple_mcp.server as srv
-from apple_mcp.contracts import CalendarEventData, Pointer, ReminderData
+from apple_mcp.contracts import CalendarEventData, ContactData, Pointer, ReminderData
 
 
 class _FakeSource:
@@ -47,6 +47,14 @@ def test_events_tool_dispatches(monkeypatch):
     out = srv.events("week")
     assert fake.queries == ["week"]
     assert out[0]["id"] == "P-1"
+
+
+def test_contacts_tool_dispatches(monkeypatch):
+    fake = _FakeSource()
+    monkeypatch.setattr(srv, "_contacts", fake)
+    out = srv.contacts("jane")
+    assert fake.queries == ["jane"]
+    assert out == [{"id": "P-1", "summary": "s", "deeplink": "d"}]
 
 
 def test_reminder_lists_tool_dispatches(monkeypatch):
@@ -91,6 +99,10 @@ class _FakeWriter:
 
     def delete_event(self, ident: str) -> None:
         self.calls.append(("delete_event", ident))
+
+    def create_contact(self, data: ContactData) -> Pointer:
+        self.calls.append(("create_contact", data))
+        return Pointer(id="C-9", summary="s", deeplink="d")
 
 
 def test_create_reminder_builds_typed_payload(monkeypatch):
@@ -168,6 +180,18 @@ def test_delete_event_dispatches(monkeypatch):
     monkeypatch.setattr(srv, "_calendar", fake)
     out = srv.delete_event("E-1")
     assert fake.calls[0] == ("delete_event", "E-1") and out == {"deleted": "E-1"}
+
+
+def test_create_contact_builds_typed_payload(monkeypatch):
+    fake = _FakeWriter()
+    monkeypatch.setattr(srv, "_contacts", fake)
+    out = srv.create_contact("Jane", family_name="Doe", organization="Acme")
+    kind, data = fake.calls[0]
+    assert kind == "create_contact"
+    assert data == ContactData(
+        given_name="Jane", family_name="Doe", organization="Acme"
+    )
+    assert out == {"id": "C-9", "summary": "s", "deeplink": "d"}
 
 
 def test_create_event_rejects_empty_start():
