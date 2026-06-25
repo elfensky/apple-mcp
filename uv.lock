@@ -48,7 +48,6 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastmcp" },
-    { name = "pyobjc-framework-contacts" },
     { name = "pyobjc-framework-eventkit" },
 ]
 
@@ -62,7 +61,6 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "fastmcp", specifier = ">=2.0" },
-    { name = "pyobjc-framework-contacts", specifier = ">=10.0" },
     { name = "pyobjc-framework-eventkit", specifier = ">=10.0" },
 ]
 
@@ -1065,26 +1063,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/98/d8/64a94651b9294702d55e748d94de30e25bc59d0784526be7643f4467eccd/pyobjc_framework_cocoa-12.2.1-cp314-cp314t-macosx_10_15_universal2.whl", hash = "sha256:a6c584e2af0813cb2f6103b184e632665a26f58c1bd5b08ffd6e95a19c617f7b", size = 392404, upload-time = "2026-06-19T16:07:44.955Z" },
     { url = "https://files.pythonhosted.org/packages/5c/cc/26e8a7bf1f5e8caa38b7f80d486296f9fd3c97e71ad7e5444ef22e802758/pyobjc_framework_cocoa-12.2.1-cp315-cp315-macosx_10_15_universal2.whl", hash = "sha256:b6023657b8d6cc049a21bd6b4752425f2f53c42f9f0b02d64c7608cc484bf103", size = 388589, upload-time = "2026-06-19T16:07:46.276Z" },
     { url = "https://files.pythonhosted.org/packages/b6/f3/eedf743a303ea742b8e082afe3613fb4d6618bc1a48cf2568b004ce906f7/pyobjc_framework_cocoa-12.2.1-cp315-cp315t-macosx_10_15_universal2.whl", hash = "sha256:c685ccd8e266a07cf912a2c5a13b1f2eff2a868a1aff163b4801b4687bd425e1", size = 392691, upload-time = "2026-06-19T16:07:47.477Z" },
-]
-
-[[package]]
-name = "pyobjc-framework-contacts"
-version = "12.2.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "pyobjc-core" },
-    { name = "pyobjc-framework-cocoa" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/4a/e2/a9c33480e4f6de3f20e2d2668ea05520061b8eae31e8461b09940c01f2dc/pyobjc_framework_contacts-12.2.1.tar.gz", hash = "sha256:b009f1e85d672e659c30cefbba02a1825b4ca2b604e65826445fb8620159725e", size = 48701, upload-time = "2026-06-19T16:20:08.856Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/65/b9/6793fe551d7c2ddf202b6a787debf6d3da251ef8f13f4fd49e83ba92d512/pyobjc_framework_contacts-12.2.1-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:01fea11ba777721add31ccff3497334eb0fde7ba1c69cf2c845a85e1515d5c18", size = 12089, upload-time = "2026-06-19T16:07:52.986Z" },
-    { url = "https://files.pythonhosted.org/packages/70/c1/c4435f4dfb8ef0038a9556d2472cd259322f73627c21f94f3e233bd73587/pyobjc_framework_contacts-12.2.1-cp312-cp312-macosx_10_13_universal2.whl", hash = "sha256:9e31c635d1a8ed48d0e3332120d0eafa6a5d40b30fe4832aaa700fa03fe14c8d", size = 12172, upload-time = "2026-06-19T16:07:53.999Z" },
-    { url = "https://files.pythonhosted.org/packages/50/0a/9a518f0ebecd5e27493230de7f5dc746b7abdf0ae3f192a14abc7c23cd15/pyobjc_framework_contacts-12.2.1-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:93facd1772971b6d88243fa28781498ab5f479c0fe286f8c03870f93c515b517", size = 12186, upload-time = "2026-06-19T16:07:54.774Z" },
-    { url = "https://files.pythonhosted.org/packages/73/74/57cbdbe46884d890e8321a9ea3cb85a163def2e0100bc38e14b41cdcde35/pyobjc_framework_contacts-12.2.1-cp313-cp313t-macosx_10_13_universal2.whl", hash = "sha256:d0f73ff7f92986b5920155e9cb16bc74cf049e166e6bc2a7df1621135b4e6d79", size = 12351, upload-time = "2026-06-19T16:07:55.543Z" },
-    { url = "https://files.pythonhosted.org/packages/7a/a6/3fc0bc4c50fdf5005501c276613d39c09a35e236f8d5c8f344ae914895eb/pyobjc_framework_contacts-12.2.1-cp314-cp314-macosx_10_15_universal2.whl", hash = "sha256:31d0906bce2e5c348a1453ac390d9e255ce547ca763e93875ea3582deba69070", size = 12259, upload-time = "2026-06-19T16:07:56.68Z" },
-    { url = "https://files.pythonhosted.org/packages/d2/4b/31ca64f27d6d9fd1ee2efed4bc979abefc21c743d6b7eab1257c2de2d359/pyobjc_framework_contacts-12.2.1-cp314-cp314t-macosx_10_15_universal2.whl", hash = "sha256:85ec30abb7b27655c715e3b2e01ed6229e24b7f14f235e6c04fb77afedad3983", size = 12415, upload-time = "2026-06-19T16:07:57.705Z" },
-    { url = "https://files.pythonhosted.org/packages/cd/51/9b4ec4d4c5a316a2fd3fe6d70c10080e82a4af95e8ffc229f1d04285b60e/pyobjc_framework_contacts-12.2.1-cp315-cp315-macosx_10_15_universal2.whl", hash = "sha256:d21bce70f97cb4b5da7cfb35da64897ce69f96ffbecacfe64364ce220b74d075", size = 12257, upload-time = "2026-06-19T16:07:58.721Z" },
-    { url = "https://files.pythonhosted.org/packages/d5/c7/9215dab638d28aaa2af87b66324b954f53dd78060e0387f9300710332e4e/pyobjc_framework_contacts-12.2.1-cp315-cp315t-macosx_10_15_universal2.whl", hash = "sha256:536a46a5a55040142a2cba108ac48045f6da266a042f2fa0ec2bf4b7f8bc1e34", size = 12413, upload-time = "2026-06-19T16:07:59.544Z" },
 ]
 
 [[package]]

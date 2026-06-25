@@ -23,7 +23,6 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import TypeVar
 
-import Contacts as CN
 import EventKit as EK
 import Foundation as F
 
@@ -93,25 +92,6 @@ def store() -> EK.EKEventStore:
     return _store
 
 
-_contacts_store: CN.CNContactStore | None = None
-
-
-def contacts_store() -> CN.CNContactStore:
-    """The one process-wide CNContactStore, lazily created on the worker.
-
-    Sibling to store(): owned by runtime, same worker + lazy-init + worker guard.
-    Contacts is a distinct TCC entity/store, so it gets its own accessor, not store()'s.
-    """
-    global _contacts_store
-    if not _on_worker():
-        raise RuntimeError(
-            "contacts_store() must run on the apple-native worker — use run_native()"
-        )
-    if _contacts_store is None:
-        _contacts_store = CN.CNContactStore.alloc().init()
-    return _contacts_store
-
-
 # osascript is the escape hatch for apps with no PyObjC framework (Mail, Notes, etc.).
 # It runs on the SAME worker as EventKit — serialized, never concurrent — so the
 # max_workers=1 fence covers all native access. A timeout bounds it so a hung script
@@ -119,10 +99,12 @@ def contacts_store() -> CN.CNContactStore:
 _OSASCRIPT_TIMEOUT = 30.0  # seconds
 
 
-def run_osascript(script: str, timeout: float = _OSASCRIPT_TIMEOUT) -> str:
+def run_osascript(script: str, *args: str, timeout: float = _OSASCRIPT_TIMEOUT) -> str:
     """Run an AppleScript via ``osascript`` on the native worker; return stdout.
 
-    The sanctioned escape hatch for framework-less apps (Mail/Notes/Music/Safari).
+    The sanctioned escape hatch for framework-less apps (Mail/Notes/Contacts/Music).
+    ``args`` are passed to the script's ``on run argv`` handler — put any user input
+    (names, ids) there so values are never interpolated into the script (no injection).
     Raises RuntimeError on a non-zero exit (app not running, TCC denied, script error)
     or timeout — it never returns an empty string to mask a failure as "no result".
     Safe on or off the worker (dispatches via run_native when called off it).
@@ -131,7 +113,7 @@ def run_osascript(script: str, timeout: float = _OSASCRIPT_TIMEOUT) -> str:
     def _run() -> str:
         try:
             proc = subprocess.run(
-                ["osascript", "-e", script],
+                ["osascript", "-e", script, *args],
                 capture_output=True,
                 text=True,
                 timeout=timeout,
@@ -230,27 +212,6 @@ def request_access() -> None:
         _request_one(s, entity)
 
 
-def request_contacts_access() -> None:
-    """Ensure Contacts access; raises AccessDenied if not granted (call on worker)."""
-    entity = CN.CNEntityTypeContacts
-    status = CN.CNContactStore.authorizationStatusForEntityType_(entity)
-    if status == CN.CNAuthorizationStatusNotDetermined:
-        cs = contacts_store()
-
-        def start(finish):
-            cs.requestAccessForEntityType_completionHandler_(
-                entity, lambda granted, error: finish(granted)
-            )
-
-        run_native_async(start, timeout=_ACCESS_TIMEOUT)
-        status = CN.CNContactStore.authorizationStatusForEntityType_(entity)
-    if status != CN.CNAuthorizationStatusAuthorized:
-        raise AccessDenied(
-            "apple-mcp needs Contacts access. Grant it in System Settings → Privacy & "
-            "Security → Contacts, then restart apple-mcp."
-        )
-
-
 def bootstrap() -> None:
     """Startup hook: create the store + request each TCC surface on the worker.
 
@@ -265,9 +226,5 @@ def bootstrap() -> None:
                 _request_one(s, entity)
             except AccessDenied as e:
                 log.warning("apple-mcp starting without one EventKit surface: %s", e)
-        try:
-            request_contacts_access()
-        except AccessDenied as e:
-            log.warning("apple-mcp starting without Contacts access: %s", e)
 
     run_native(_request_all)

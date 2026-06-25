@@ -262,14 +262,11 @@ def test_recurring_event_update_targets_one_occurrence(created):
 
 @pytest.mark.integration
 def test_contacts_create_find_delete():
-    """#15: create a contact, find it, delete it. Needs Contacts TCC (prompts once)."""
-    import Contacts as CN
-
+    """#15: osascript Contacts — create, find by name, delete (Automation TCC)."""
     from apple_mcp.adapters.contacts import ContactsAdapter
     from apple_mcp.contracts import ContactData
-    from apple_mcp.runtime import contacts_store, request_contacts_access
+    from apple_mcp.runtime import run_osascript
 
-    run_native(request_contacts_access)
     a = ContactsAdapter()
     p = a.create_contact(
         ContactData(
@@ -282,15 +279,12 @@ def test_contacts_create_find_delete():
         assert p.id and "ZZContact" in p.summary
         assert any(x.id == p.id for x in a.get_pointers("ZZContact"))
     finally:
-
-        def _delete():
-            cs = contacts_store()
-            c, _err = cs.unifiedContactWithIdentifier_keysToFetch_error_(
-                p.id, [CN.CNContactGivenNameKey], None
-            )
-            if c is not None:
-                req = CN.CNSaveRequest.alloc().init()
-                req.deleteContact_(c.mutableCopy())
-                cs.executeSaveRequest_error_(req, None)
-
-        run_native(_delete)
+        run_osascript(
+            "on run argv\n"
+            '  tell application "Contacts"\n'
+            "    delete (first person whose id is (item 1 of argv))\n"
+            "    save\n"
+            "  end tell\n"
+            "end run",
+            p.id,
+        )
