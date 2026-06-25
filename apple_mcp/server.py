@@ -14,6 +14,7 @@ from fastmcp import FastMCP
 from .adapters.calendar import CalendarAdapter
 from .adapters.contacts import ContactsAdapter
 from .adapters.files import FilesAdapter
+from .adapters.maps import MapsAdapter
 from .adapters.reminders import RemindersAdapter
 from .contracts import CalendarEventData, ContactData, Pointer, ReminderData
 
@@ -23,6 +24,7 @@ _reminders = RemindersAdapter()
 _calendar = CalendarAdapter()
 _contacts = ContactsAdapter()
 _files = FilesAdapter()
+_maps = MapsAdapter()
 
 
 def _emit(p: Pointer) -> dict[str, str]:
@@ -80,6 +82,12 @@ def contacts(name: str) -> list[dict]:
 def files(name: str) -> list[dict]:
     """Find files by name via Spotlight. Returns pointers (path + filename)."""
     return [_emit(p) for p in _files.get_pointers(name)]
+
+
+@mcp.tool()
+def maps_open(query: str) -> dict:
+    """Open Maps to a search (place or address). Maps has no readable API; open-only."""
+    return {"opened": _maps.open_search(query)}
 
 
 def _parse(s: str | None) -> datetime | None:
