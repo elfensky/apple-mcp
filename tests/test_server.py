@@ -57,6 +57,14 @@ def test_contacts_tool_dispatches(monkeypatch):
     assert out == [{"id": "P-1", "summary": "s", "deeplink": "d"}]
 
 
+def test_files_tool_dispatches(monkeypatch):
+    fake = _FakeSource()
+    monkeypatch.setattr(srv, "_files", fake)
+    out = srv.files("pyproject")
+    assert fake.queries == ["pyproject"]
+    assert out == [{"id": "P-1", "summary": "s", "deeplink": "d"}]
+
+
 def test_reminder_lists_tool_dispatches(monkeypatch):
     fake = _FakeSource()
     monkeypatch.setattr(srv, "_reminders", fake)
