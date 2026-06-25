@@ -65,6 +65,18 @@ def test_files_tool_dispatches(monkeypatch):
     assert out == [{"id": "P-1", "summary": "s", "deeplink": "d"}]
 
 
+def test_maps_open_dispatches(monkeypatch):
+    class _FakeMaps:
+        def open_search(self, q):
+            self.q = q
+            return "maps://?q=" + q
+
+    fake = _FakeMaps()
+    monkeypatch.setattr(srv, "_maps", fake)
+    out = srv.maps_open("Paris")
+    assert fake.q == "Paris" and out == {"opened": "maps://?q=Paris"}
+
+
 def test_reminder_lists_tool_dispatches(monkeypatch):
     fake = _FakeSource()
     monkeypatch.setattr(srv, "_reminders", fake)
