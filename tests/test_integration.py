@@ -298,3 +298,14 @@ def test_files_spotlight_search():
     ptrs = FilesAdapter().get_pointers("pyproject.toml")
     assert ptrs and all(p.id.startswith("/") and p.summary for p in ptrs)
     assert any(p.summary == "pyproject.toml" for p in ptrs)
+
+
+@pytest.mark.integration
+def test_mail_search_runs():
+    """#18: Mail subject search via osascript runs (Automation TCC)."""
+    from apple_mcp.adapters.mail import MailAdapter
+
+    ptrs = MailAdapter().get_pointers("apple-mcp-no-such-subject-zzz")
+    assert isinstance(
+        ptrs, list
+    )  # runs without error (likely empty) — validates the path
