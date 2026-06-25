@@ -13,6 +13,7 @@ from fastmcp import FastMCP
 
 from .adapters.calendar import CalendarAdapter
 from .adapters.contacts import ContactsAdapter
+from .adapters.files import FilesAdapter
 from .adapters.reminders import RemindersAdapter
 from .contracts import CalendarEventData, ContactData, Pointer, ReminderData
 
@@ -21,6 +22,7 @@ mcp = FastMCP("apple-mcp")
 _reminders = RemindersAdapter()
 _calendar = CalendarAdapter()
 _contacts = ContactsAdapter()
+_files = FilesAdapter()
 
 
 def _emit(p: Pointer) -> dict[str, str]:
@@ -72,6 +74,12 @@ def calendars() -> list[dict]:
 def contacts(name: str) -> list[dict]:
     """Find contacts by name (substring). Returns pointers (id + name/org)."""
     return [_emit(p) for p in _contacts.get_pointers(name)]
+
+
+@mcp.tool()
+def files(name: str) -> list[dict]:
+    """Find files by name via Spotlight. Returns pointers (path + filename)."""
+    return [_emit(p) for p in _files.get_pointers(name)]
 
 
 def _parse(s: str | None) -> datetime | None:
