@@ -77,6 +77,14 @@ def test_maps_open_dispatches(monkeypatch):
     assert fake.q == "Paris" and out == {"opened": "maps://?q=Paris"}
 
 
+def test_mail_tool_dispatches(monkeypatch):
+    fake = _FakeSource()
+    monkeypatch.setattr(srv, "_mail", fake)
+    out = srv.mail("invoice")
+    assert fake.queries == ["invoice"]
+    assert out == [{"id": "P-1", "summary": "s", "deeplink": "d"}]
+
+
 def test_reminder_lists_tool_dispatches(monkeypatch):
     fake = _FakeSource()
     monkeypatch.setattr(srv, "_reminders", fake)
