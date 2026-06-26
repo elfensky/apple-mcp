@@ -348,3 +348,11 @@ def test_music_search_runs():
     assert isinstance(
         ptrs, list
     )  # runs without error (likely empty) — validates the path
+
+
+@pytest.mark.integration
+def test_safari_tabs_runs():
+    """#22: Safari open-tabs read via osascript runs (Automation TCC)."""
+    from apple_mcp.adapters.safari import SafariAdapter
+
+    assert isinstance(SafariAdapter().get_tabs(), list)

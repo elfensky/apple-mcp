@@ -19,6 +19,7 @@ from .adapters.maps import MapsAdapter
 from .adapters.music import MusicAdapter
 from .adapters.notes import NotesAdapter
 from .adapters.reminders import RemindersAdapter
+from .adapters.safari import SafariAdapter
 from .contracts import CalendarEventData, ContactData, Pointer, ReminderData
 
 mcp = FastMCP("apple-mcp")
@@ -31,6 +32,7 @@ _maps = MapsAdapter()
 _mail = MailAdapter()
 _notes = NotesAdapter()
 _music = MusicAdapter()
+_safari = SafariAdapter()
 
 
 def _emit(p: Pointer) -> dict[str, str]:
@@ -112,6 +114,12 @@ def notes(title: str) -> list[dict]:
 def music(track: str) -> list[dict]:
     """Search the Music library by track name. Pointers (id + name/artist)."""
     return [_emit(p) for p in _music.get_pointers(track)]
+
+
+@mcp.tool()
+def safari_tabs() -> list[dict]:
+    """List open Safari tabs as pointers (url + title)."""
+    return [_emit(p) for p in _safari.get_tabs()]
 
 
 def _parse(s: str | None) -> datetime | None:
