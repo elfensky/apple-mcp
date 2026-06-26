@@ -309,3 +309,31 @@ def test_mail_search_runs():
     assert isinstance(
         ptrs, list
     )  # runs without error (likely empty) — validates the path
+
+
+@pytest.mark.integration
+def test_notes_search_finds_created():
+    """#19: Notes title search via osascript finds a created note (Automation TCC)."""
+    from apple_mcp.adapters.notes import NotesAdapter
+    from apple_mcp.runtime import run_osascript
+
+    marker = "apple-mcp-test-zznote"
+    run_osascript(
+        "on run argv\n"
+        '  tell application "Notes"\n'
+        '    make new note with properties {name:(item 1 of argv), body:"x"}\n'
+        "  end tell\n"
+        "end run",
+        marker,
+    )
+    try:
+        assert any(marker in p.summary for p in NotesAdapter().get_pointers(marker))
+    finally:
+        run_osascript(
+            "on run argv\n"
+            '  tell application "Notes"\n'
+            "    delete (every note whose name is (item 1 of argv))\n"
+            "  end tell\n"
+            "end run",
+            marker,
+        )

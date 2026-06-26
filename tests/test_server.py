@@ -85,6 +85,14 @@ def test_mail_tool_dispatches(monkeypatch):
     assert out == [{"id": "P-1", "summary": "s", "deeplink": "d"}]
 
 
+def test_notes_tool_dispatches(monkeypatch):
+    fake = _FakeSource()
+    monkeypatch.setattr(srv, "_notes", fake)
+    out = srv.notes("groceries")
+    assert fake.queries == ["groceries"]
+    assert out == [{"id": "P-1", "summary": "s", "deeplink": "d"}]
+
+
 def test_reminder_lists_tool_dispatches(monkeypatch):
     fake = _FakeSource()
     monkeypatch.setattr(srv, "_reminders", fake)
