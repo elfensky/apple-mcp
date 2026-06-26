@@ -1,4 +1,4 @@
-"""Music adapter — Music.app via osascript (Automation TCC). Read-only v1: library search.
+"""Music adapter — Music.app via osascript (Automation TCC). Read-only: track search.
 
 Searches library tracks whose name contains the query. ``Pointer.id`` is the track's
 ``database ID``; ``summary`` is name + artist; ``deeplink`` is empty (no verified per-
