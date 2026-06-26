@@ -127,6 +127,14 @@ def test_messages_chats_dispatches(monkeypatch):
     assert srv.messages_chats() == [{"id": "g", "summary": "Family", "deeplink": ""}]
 
 
+def test_shortcuts_tool_dispatches(monkeypatch):
+    fake = _FakeSource()
+    monkeypatch.setattr(srv, "_shortcuts", fake)
+    out = srv.shortcuts("water")
+    assert fake.queries == ["water"]
+    assert out == [{"id": "P-1", "summary": "s", "deeplink": "d"}]
+
+
 def test_reminder_lists_tool_dispatches(monkeypatch):
     fake = _FakeSource()
     monkeypatch.setattr(srv, "_reminders", fake)

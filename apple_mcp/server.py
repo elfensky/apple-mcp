@@ -22,6 +22,7 @@ from .adapters.notes import NotesAdapter
 from .adapters.photos import PhotosAdapter
 from .adapters.reminders import RemindersAdapter
 from .adapters.safari import SafariAdapter
+from .adapters.shortcuts import ShortcutsAdapter
 from .contracts import CalendarEventData, ContactData, Pointer, ReminderData
 
 mcp = FastMCP("apple-mcp")
@@ -37,6 +38,7 @@ _music = MusicAdapter()
 _safari = SafariAdapter()
 _photos = PhotosAdapter()
 _messages = MessagesAdapter()
+_shortcuts = ShortcutsAdapter()
 
 
 def _emit(p: Pointer) -> dict[str, str]:
@@ -136,6 +138,12 @@ def photos(query: str) -> list[dict]:
 def messages_chats() -> list[dict]:
     """List Messages conversations (id + name). No content; sending isn't supported."""
     return [_emit(p) for p in _messages.get_chats()]
+
+
+@mcp.tool()
+def shortcuts(name: str = "") -> list[dict]:
+    """List/search Shortcuts by name (empty lists all). Pointers (name)."""
+    return [_emit(p) for p in _shortcuts.get_pointers(name)]
 
 
 def _parse(s: str | None) -> datetime | None:
