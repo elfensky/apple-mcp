@@ -372,3 +372,12 @@ def test_messages_chats_runs():
     from apple_mcp.adapters.messages import MessagesAdapter
 
     assert isinstance(MessagesAdapter().get_chats(), list)
+
+
+@pytest.mark.integration
+def test_shortcuts_list_runs():
+    """#22: `shortcuts list` CLI enumerates shortcuts (no TCC)."""
+    from apple_mcp.adapters.shortcuts import ShortcutsAdapter
+
+    ptrs = ShortcutsAdapter().get_pointers()
+    assert isinstance(ptrs, list) and all(p.id and p.summary for p in ptrs)
