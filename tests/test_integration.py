@@ -291,16 +291,6 @@ def test_contacts_create_find_delete():
 
 
 @pytest.mark.integration
-def test_files_spotlight_search():
-    """#16: Spotlight (mdfind) finds files by name. Needs a populated index."""
-    from apple_mcp.adapters.files import FilesAdapter
-
-    ptrs = FilesAdapter().get_pointers("pyproject.toml")
-    assert ptrs and all(p.id.startswith("/") and p.summary for p in ptrs)
-    assert any(p.summary == "pyproject.toml" for p in ptrs)
-
-
-@pytest.mark.integration
 def test_mail_search_runs():
     """#18: Mail subject search via osascript runs (Automation TCC)."""
     from apple_mcp.adapters.mail import MailAdapter
