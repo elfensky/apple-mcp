@@ -364,3 +364,11 @@ def test_photos_search_runs():
     from apple_mcp.adapters.photos import PhotosAdapter
 
     assert isinstance(PhotosAdapter().get_pointers("apple-mcp-no-such-photo-zzz"), list)
+
+
+@pytest.mark.integration
+def test_messages_chats_runs():
+    """#21: Messages chat list via osascript runs (Automation TCC)."""
+    from apple_mcp.adapters.messages import MessagesAdapter
+
+    assert isinstance(MessagesAdapter().get_chats(), list)

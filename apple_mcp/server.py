@@ -16,6 +16,7 @@ from .adapters.contacts import ContactsAdapter
 from .adapters.files import FilesAdapter
 from .adapters.mail import MailAdapter
 from .adapters.maps import MapsAdapter
+from .adapters.messages import MessagesAdapter
 from .adapters.music import MusicAdapter
 from .adapters.notes import NotesAdapter
 from .adapters.photos import PhotosAdapter
@@ -35,6 +36,7 @@ _notes = NotesAdapter()
 _music = MusicAdapter()
 _safari = SafariAdapter()
 _photos = PhotosAdapter()
+_messages = MessagesAdapter()
 
 
 def _emit(p: Pointer) -> dict[str, str]:
@@ -128,6 +130,12 @@ def safari_tabs() -> list[dict]:
 def photos(query: str) -> list[dict]:
     """Search Photos (filename, place, date). Returns pointers (id + filename)."""
     return [_emit(p) for p in _photos.get_pointers(query)]
+
+
+@mcp.tool()
+def messages_chats() -> list[dict]:
+    """List Messages conversations (id + name). No content; sending isn't supported."""
+    return [_emit(p) for p in _messages.get_chats()]
 
 
 def _parse(s: str | None) -> datetime | None:
