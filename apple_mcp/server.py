@@ -18,6 +18,7 @@ from .adapters.mail import MailAdapter
 from .adapters.maps import MapsAdapter
 from .adapters.music import MusicAdapter
 from .adapters.notes import NotesAdapter
+from .adapters.photos import PhotosAdapter
 from .adapters.reminders import RemindersAdapter
 from .adapters.safari import SafariAdapter
 from .contracts import CalendarEventData, ContactData, Pointer, ReminderData
@@ -33,6 +34,7 @@ _mail = MailAdapter()
 _notes = NotesAdapter()
 _music = MusicAdapter()
 _safari = SafariAdapter()
+_photos = PhotosAdapter()
 
 
 def _emit(p: Pointer) -> dict[str, str]:
@@ -120,6 +122,12 @@ def music(track: str) -> list[dict]:
 def safari_tabs() -> list[dict]:
     """List open Safari tabs as pointers (url + title)."""
     return [_emit(p) for p in _safari.get_tabs()]
+
+
+@mcp.tool()
+def photos(query: str) -> list[dict]:
+    """Search Photos (filename, place, date). Returns pointers (id + filename)."""
+    return [_emit(p) for p in _photos.get_pointers(query)]
 
 
 def _parse(s: str | None) -> datetime | None:
