@@ -356,3 +356,11 @@ def test_safari_tabs_runs():
     from apple_mcp.adapters.safari import SafariAdapter
 
     assert isinstance(SafariAdapter().get_tabs(), list)
+
+
+@pytest.mark.integration
+def test_photos_search_runs():
+    """#20: Photos search via osascript runs (Automation TCC)."""
+    from apple_mcp.adapters.photos import PhotosAdapter
+
+    assert isinstance(PhotosAdapter().get_pointers("apple-mcp-no-such-photo-zzz"), list)

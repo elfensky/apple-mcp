@@ -110,6 +110,14 @@ def test_safari_tabs_dispatches(monkeypatch):
     assert srv.safari_tabs() == [{"id": "u", "summary": "t", "deeplink": "u"}]
 
 
+def test_photos_tool_dispatches(monkeypatch):
+    fake = _FakeSource()
+    monkeypatch.setattr(srv, "_photos", fake)
+    out = srv.photos("beach")
+    assert fake.queries == ["beach"]
+    assert out == [{"id": "P-1", "summary": "s", "deeplink": "d"}]
+
+
 def test_reminder_lists_tool_dispatches(monkeypatch):
     fake = _FakeSource()
     monkeypatch.setattr(srv, "_reminders", fake)
