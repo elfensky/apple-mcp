@@ -1,9 +1,9 @@
 """Notes adapter — Notes.app via osascript (Automation TCC). Read-only v1: title search.
 
 Notes is scriptable. ``get_pointers(query)`` searches notes whose name (title) contains
-the query. ``Pointer.id`` is the note's ``x-coredata://…`` id; ``summary`` is the title;
-``deeplink`` is empty — Notes has no verified open-by-id URL scheme, so id + title are the
-handle. Pointers, not bodies (the note body is never fetched). Capped and osascript-
+the query. ``Pointer.id`` is the note's ``x-coredata://…`` id; ``summary`` is the title.
+``deeplink`` is empty — Notes has no verified open-by-id URL scheme, so id + title are
+the handle. Pointers, not bodies (the body is never fetched). Capped and osascript-
 timeout-bounded; user input goes via argv (no script injection).
 """
 
