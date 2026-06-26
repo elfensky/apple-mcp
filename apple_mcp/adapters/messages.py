@@ -3,7 +3,7 @@
 Lists conversations (chats). ``Pointer.id`` = chat guid; ``summary`` = chat name (group
 chats show their name; 1:1 chats may be empty → a placeholder); ``deeplink`` empty. NO
 message content is read — that needs Full Disk Access + the private ``chat.db``. Sending
-is deliberately not implemented: the AppleScript send handler is regressed since macOS 11.
+is not implemented: the AppleScript send handler is regressed since macOS 11.
 Capped; Messages scripting can be slow.
 """
 
