@@ -16,6 +16,7 @@ from .adapters.contacts import ContactsAdapter
 from .adapters.files import FilesAdapter
 from .adapters.mail import MailAdapter
 from .adapters.maps import MapsAdapter
+from .adapters.notes import NotesAdapter
 from .adapters.reminders import RemindersAdapter
 from .contracts import CalendarEventData, ContactData, Pointer, ReminderData
 
@@ -27,6 +28,7 @@ _contacts = ContactsAdapter()
 _files = FilesAdapter()
 _maps = MapsAdapter()
 _mail = MailAdapter()
+_notes = NotesAdapter()
 
 
 def _emit(p: Pointer) -> dict[str, str]:
@@ -96,6 +98,12 @@ def maps_open(query: str) -> dict:
 def mail(subject: str) -> list[dict]:
     """Search the Mail inbox by subject substring. Pointers (id + subject/sender)."""
     return [_emit(p) for p in _mail.get_pointers(subject)]
+
+
+@mcp.tool()
+def notes(title: str) -> list[dict]:
+    """Search Notes by title substring. Returns pointers (id + title)."""
+    return [_emit(p) for p in _notes.get_pointers(title)]
 
 
 def _parse(s: str | None) -> datetime | None:
