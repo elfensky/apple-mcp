@@ -337,3 +337,14 @@ def test_notes_search_finds_created():
             "end run",
             marker,
         )
+
+
+@pytest.mark.integration
+def test_music_search_runs():
+    """#22: Music library search via osascript runs (Automation TCC)."""
+    from apple_mcp.adapters.music import MusicAdapter
+
+    ptrs = MusicAdapter().get_pointers("apple-mcp-no-such-track-zzz")
+    assert isinstance(
+        ptrs, list
+    )  # runs without error (likely empty) — validates the path

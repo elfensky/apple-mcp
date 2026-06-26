@@ -16,6 +16,7 @@ from .adapters.contacts import ContactsAdapter
 from .adapters.files import FilesAdapter
 from .adapters.mail import MailAdapter
 from .adapters.maps import MapsAdapter
+from .adapters.music import MusicAdapter
 from .adapters.notes import NotesAdapter
 from .adapters.reminders import RemindersAdapter
 from .contracts import CalendarEventData, ContactData, Pointer, ReminderData
@@ -29,6 +30,7 @@ _files = FilesAdapter()
 _maps = MapsAdapter()
 _mail = MailAdapter()
 _notes = NotesAdapter()
+_music = MusicAdapter()
 
 
 def _emit(p: Pointer) -> dict[str, str]:
@@ -104,6 +106,12 @@ def mail(subject: str) -> list[dict]:
 def notes(title: str) -> list[dict]:
     """Search Notes by title substring. Returns pointers (id + title)."""
     return [_emit(p) for p in _notes.get_pointers(title)]
+
+
+@mcp.tool()
+def music(track: str) -> list[dict]:
+    """Search the Music library by track name. Pointers (id + name/artist)."""
+    return [_emit(p) for p in _music.get_pointers(track)]
 
 
 def _parse(s: str | None) -> datetime | None:
