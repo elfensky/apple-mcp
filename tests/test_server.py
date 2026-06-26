@@ -118,6 +118,15 @@ def test_photos_tool_dispatches(monkeypatch):
     assert out == [{"id": "P-1", "summary": "s", "deeplink": "d"}]
 
 
+def test_messages_chats_dispatches(monkeypatch):
+    class _FakeMessages:
+        def get_chats(self):
+            return [Pointer(id="g", summary="Family", deeplink="")]
+
+    monkeypatch.setattr(srv, "_messages", _FakeMessages())
+    assert srv.messages_chats() == [{"id": "g", "summary": "Family", "deeplink": ""}]
+
+
 def test_reminder_lists_tool_dispatches(monkeypatch):
     fake = _FakeSource()
     monkeypatch.setattr(srv, "_reminders", fake)
