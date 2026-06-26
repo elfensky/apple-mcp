@@ -13,9 +13,7 @@ from fastmcp import FastMCP
 
 from .adapters.calendar import CalendarAdapter
 from .adapters.contacts import ContactsAdapter
-from .adapters.files import FilesAdapter
 from .adapters.mail import MailAdapter
-from .adapters.maps import MapsAdapter
 from .adapters.messages import MessagesAdapter
 from .adapters.music import MusicAdapter
 from .adapters.notes import NotesAdapter
@@ -30,8 +28,6 @@ mcp = FastMCP("apple-mcp")
 _reminders = RemindersAdapter()
 _calendar = CalendarAdapter()
 _contacts = ContactsAdapter()
-_files = FilesAdapter()
-_maps = MapsAdapter()
 _mail = MailAdapter()
 _notes = NotesAdapter()
 _music = MusicAdapter()
@@ -90,18 +86,6 @@ def calendars() -> list[dict]:
 def contacts(name: str) -> list[dict]:
     """Find contacts by name (substring). Returns pointers (id + name/org)."""
     return [_emit(p) for p in _contacts.get_pointers(name)]
-
-
-@mcp.tool()
-def files(name: str) -> list[dict]:
-    """Find files by name via Spotlight. Returns pointers (path + filename)."""
-    return [_emit(p) for p in _files.get_pointers(name)]
-
-
-@mcp.tool()
-def maps_open(query: str) -> dict:
-    """Open Maps to a search (place or address). Maps has no readable API; open-only."""
-    return {"opened": _maps.open_search(query)}
 
 
 @mcp.tool()
