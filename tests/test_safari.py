@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from apple_mcp.adapters.safari import _parse
+import pytest
+
+from apple_mcp.adapters.safari import _normalize_url, _parse
 from apple_mcp.contracts import Pointer
 
 
@@ -19,3 +21,31 @@ def test_parse_url_and_title():
 
 def test_parse_skips_blank():
     assert _parse("\n  \n") == []
+
+
+def test_normalize_url_adds_scheme():
+    assert _normalize_url("example.com") == "https://example.com"
+
+
+def test_normalize_url_keeps_existing_scheme():
+    assert _normalize_url("  http://x.com/a  ") == "http://x.com/a"
+
+
+def test_normalize_url_empty_raises():
+    with pytest.raises(ValueError, match="needs a URL"):
+        _normalize_url("   ")
+
+
+def test_normalize_url_keeps_host_port():
+    # schemeless host:port must still default to https, not be read as a scheme
+    assert _normalize_url("localhost:8080") == "https://localhost:8080"
+
+
+def test_normalize_url_rejects_file_scheme():
+    with pytest.raises(ValueError, match="http/https"):
+        _normalize_url("file:///etc/passwd")
+
+
+def test_normalize_url_rejects_app_scheme():
+    with pytest.raises(ValueError, match="http/https"):
+        _normalize_url("shortcuts://run-shortcut?name=Evil")

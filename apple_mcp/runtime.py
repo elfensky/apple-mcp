@@ -26,6 +26,8 @@ from typing import TypeVar
 import EventKit as EK
 import Foundation as F
 
+from .contracts import Recurrence
+
 T = TypeVar("T")
 
 # ponytail: one process-wide native thread. If a future app needs a *second* isolated
@@ -102,7 +104,7 @@ _OSASCRIPT_TIMEOUT = 30.0  # seconds
 def run_osascript(script: str, *args: str, timeout: float = _OSASCRIPT_TIMEOUT) -> str:
     """Run an AppleScript via ``osascript`` on the native worker; return stdout.
 
-    The sanctioned escape hatch for framework-less apps (Mail/Notes/Contacts/Music).
+    The sanctioned escape hatch for framework-less apps (Mail/Notes/Contacts).
     ``args`` are passed to the script's ``on run argv`` handler — put any user input
     (names, ids) there so values are never interpolated into the script (no injection).
     Raises RuntimeError on a non-zero exit (app not running, TCC denied, script error)
@@ -171,6 +173,30 @@ def due_components(dt: datetime) -> F.NSDateComponents:
     c.setHour_(dt.hour)
     c.setMinute_(dt.minute)
     return c
+
+
+_FREQUENCIES = {
+    "daily": EK.EKRecurrenceFrequencyDaily,
+    "weekly": EK.EKRecurrenceFrequencyWeekly,
+    "monthly": EK.EKRecurrenceFrequencyMonthly,
+    "yearly": EK.EKRecurrenceFrequencyYearly,
+}
+
+
+def to_recurrence_rule(r: Recurrence) -> EK.EKRecurrenceRule:
+    """Map a Recurrence (RFC-5545 subset) to a native EKRecurrenceRule.
+
+    A value object (no store / thread affinity), so adapters build it inside their
+    run_native work block alongside the EKEvent/EKReminder it attaches to.
+    """
+    end = None
+    if r.count is not None:
+        end = EK.EKRecurrenceEnd.recurrenceEndWithOccurrenceCount_(r.count)
+    elif r.until is not None:
+        end = EK.EKRecurrenceEnd.recurrenceEndWithEndDate_(to_nsdate(r.until))
+    return EK.EKRecurrenceRule.alloc().initRecurrenceWithFrequency_interval_end_(
+        _FREQUENCIES[r.frequency], r.interval, end
+    )
 
 
 log = logging.getLogger("apple_mcp")

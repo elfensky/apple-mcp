@@ -15,13 +15,18 @@ from .adapters.calendar import CalendarAdapter
 from .adapters.contacts import ContactsAdapter
 from .adapters.mail import MailAdapter
 from .adapters.messages import MessagesAdapter
-from .adapters.music import MusicAdapter
 from .adapters.notes import NotesAdapter
 from .adapters.photos import PhotosAdapter
 from .adapters.reminders import RemindersAdapter
 from .adapters.safari import SafariAdapter
 from .adapters.shortcuts import ShortcutsAdapter
-from .contracts import CalendarEventData, ContactData, Pointer, ReminderData
+from .contracts import (
+    CalendarEventData,
+    ContactData,
+    Pointer,
+    Recurrence,
+    ReminderData,
+)
 
 mcp = FastMCP("apple-mcp")
 
@@ -30,7 +35,6 @@ _calendar = CalendarAdapter()
 _contacts = ContactsAdapter()
 _mail = MailAdapter()
 _notes = NotesAdapter()
-_music = MusicAdapter()
 _safari = SafariAdapter()
 _photos = PhotosAdapter()
 _messages = MessagesAdapter()
@@ -101,12 +105,6 @@ def notes(title: str) -> list[dict]:
 
 
 @mcp.tool()
-def music(track: str) -> list[dict]:
-    """Search the Music library by track name. Pointers (id + name/artist)."""
-    return [_emit(p) for p in _music.get_pointers(track)]
-
-
-@mcp.tool()
 def safari_tabs() -> list[dict]:
     """List open Safari tabs as pointers (url + title)."""
     return [_emit(p) for p in _safari.get_tabs()]
@@ -149,15 +147,38 @@ def _parse_required(label: str, s: str) -> datetime:
         ) from e
 
 
+def _priority(n: int) -> int:
+    """EventKit reminder priority: 0 (none) or 1–9 (1 highest). Reject out-of-range."""
+    if not 0 <= n <= 9:
+        raise ValueError(f"priority must be 0–9 (0=none, 1=highest), got {n}")
+    return n
+
+
+def _recurrence(rrule: str | None) -> Recurrence | None:
+    """Optional RFC-5545 RRULE string → Recurrence. Empty/absent → None."""
+    return Recurrence.from_rrule(rrule) if rrule else None
+
+
 @_write_tool
 def create_reminder(
     title: str,
     due: str | None = None,
     list_name: str | None = None,
     notes: str | None = None,
+    priority: int = 0,
+    start: str | None = None,
+    recurrence: str | None = None,
 ) -> dict:
-    """Create a reminder. `due` is an ISO datetime string (e.g. 2026-06-23T18:00:00)."""
-    data = ReminderData(title=title, due=_parse(due), list_name=list_name, notes=notes)
+    """Create a reminder. `due`/`start` ISO; `priority` 0–9; `recurrence` an RRULE."""
+    data = ReminderData(
+        title=title,
+        due=_parse(due),
+        list_name=list_name,
+        notes=notes,
+        priority=_priority(priority),
+        start=_parse(start),
+        recurrence=_recurrence(recurrence),
+    )
     return _emit(_reminders.create_reminder(data))
 
 
@@ -168,9 +189,20 @@ def update_reminder(
     due: str | None = None,
     list_name: str | None = None,
     notes: str | None = None,
+    priority: int = 0,
+    start: str | None = None,
+    recurrence: str | None = None,
 ) -> dict:
     """Update a reminder by id (full replace from the given fields)."""
-    data = ReminderData(title=title, due=_parse(due), list_name=list_name, notes=notes)
+    data = ReminderData(
+        title=title,
+        due=_parse(due),
+        list_name=list_name,
+        notes=notes,
+        priority=_priority(priority),
+        start=_parse(start),
+        recurrence=_recurrence(recurrence),
+    )
     return _emit(_reminders.update_reminder(id, data))
 
 
@@ -188,8 +220,10 @@ def create_event(
     calendar: str | None = None,
     location: str | None = None,
     notes: str | None = None,
+    all_day: bool = False,
+    recurrence: str | None = None,
 ) -> dict:
-    """Create a calendar event. `start`/`end` are ISO datetime strings."""
+    """Create an event. `start`/`end` ISO; `all_day` flag; `recurrence` an RRULE."""
     data = CalendarEventData(
         title=title,
         start=_parse_required("start", start),
@@ -197,6 +231,8 @@ def create_event(
         calendar=calendar,
         location=location,
         notes=notes,
+        all_day=all_day,
+        recurrence=_recurrence(recurrence),
     )
     return _emit(_calendar.create_event(data))
 
@@ -210,6 +246,8 @@ def update_event(
     calendar: str | None = None,
     location: str | None = None,
     notes: str | None = None,
+    all_day: bool = False,
+    recurrence: str | None = None,
 ) -> dict:
     """Update an event by id (full replace from the given fields)."""
     data = CalendarEventData(
@@ -219,6 +257,8 @@ def update_event(
         calendar=calendar,
         location=location,
         notes=notes,
+        all_day=all_day,
+        recurrence=_recurrence(recurrence),
     )
     return _emit(_calendar.update_event(id, data))
 
@@ -241,6 +281,18 @@ def create_contact(
         given_name=given_name, family_name=family_name, organization=organization
     )
     return _emit(_contacts.create_contact(data))
+
+
+@_write_tool
+def run_shortcut(name: str, input_text: str | None = None) -> dict:
+    """Run a Shortcut by name; optional `input_text` piped in. Returns a pointer."""
+    return _emit(_shortcuts.run_shortcut(name, input_text))
+
+
+@_write_tool
+def safari_open(url: str) -> dict:
+    """Open a URL in a new Safari tab; adds https:// if no scheme."""
+    return _emit(_safari.open_url(url))
 
 
 def main() -> None:

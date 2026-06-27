@@ -330,17 +330,6 @@ def test_notes_search_finds_created():
 
 
 @pytest.mark.integration
-def test_music_search_runs():
-    """#22: Music library search via osascript runs (Automation TCC)."""
-    from apple_mcp.adapters.music import MusicAdapter
-
-    ptrs = MusicAdapter().get_pointers("apple-mcp-no-such-track-zzz")
-    assert isinstance(
-        ptrs, list
-    )  # runs without error (likely empty) — validates the path
-
-
-@pytest.mark.integration
 def test_safari_tabs_runs():
     """#22: Safari open-tabs read via osascript runs (Automation TCC)."""
     from apple_mcp.adapters.safari import SafariAdapter
@@ -371,3 +360,140 @@ def test_shortcuts_list_runs():
 
     ptrs = ShortcutsAdapter().get_pointers()
     assert isinstance(ptrs, list) and all(p.id and p.summary for p in ptrs)
+
+
+@pytest.mark.integration
+def test_run_shortcut_missing_raises():
+    """run_shortcut on an unknown name surfaces a clear RuntimeError."""
+    from apple_mcp.adapters.shortcuts import ShortcutsAdapter
+
+    with pytest.raises(RuntimeError, match="shortcuts run"):
+        ShortcutsAdapter().run_shortcut("apple-mcp-no-such-shortcut-zzz")
+
+
+@pytest.mark.integration
+def test_safari_open_creates_tab():
+    """open_url adds a tab whose URL we can find, then we close it."""
+    from apple_mcp.adapters.safari import SafariAdapter
+    from apple_mcp.runtime import run_osascript
+
+    url = "https://example.com/apple-mcp-test"
+    a = SafariAdapter()
+    p = a.open_url(url)
+    try:
+        assert p.deeplink == url
+        assert any(url in t.id for t in a.get_tabs())
+    finally:
+        run_osascript(
+            "on run argv\n"
+            '  tell application "Safari"\n'
+            "    repeat with w in windows\n"
+            "      repeat with t in (tabs of w whose URL contains (item 1 of argv))\n"
+            "        close t\n"
+            "      end repeat\n"
+            "    end repeat\n"
+            "  end tell\n"
+            "end run",
+            url,
+        )
+
+
+@pytest.mark.integration
+def test_event_create_all_day(created):
+    """all_day=True creates an all-day event (the summary renders it specially)."""
+    from datetime import datetime, timedelta
+
+    from apple_mcp.adapters.calendar import CalendarAdapter
+    from apple_mcp.contracts import CalendarEventData
+
+    run_native(request_access)
+    day = (datetime.now() + timedelta(days=1)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    p = CalendarAdapter().create_event(
+        CalendarEventData(
+            title=f"{TITLE_PREFIX} all-day",
+            start=day,
+            end=day + timedelta(days=1),
+            all_day=True,
+        )
+    )
+    created.append(("event", p.id))
+    assert "all day" in p.summary
+
+
+@pytest.mark.integration
+def test_reminder_create_with_priority(created):
+    """priority is written through and reads back off the stored EKReminder."""
+    from apple_mcp.adapters.reminders import RemindersAdapter
+    from apple_mcp.contracts import ReminderData
+
+    run_native(request_access)
+    p = RemindersAdapter().create_reminder(
+        ReminderData(title=f"{TITLE_PREFIX} prio", priority=1)
+    )
+    created.append(("reminder", p.id))
+    prio = run_native(lambda: store().calendarItemWithIdentifier_(p.id).priority())
+    assert prio == 1
+
+
+@pytest.mark.integration
+def test_event_create_recurring_series(created):
+    """create_event with an RRULE makes a real repeating series (span=FutureEvents).
+
+    A daily COUNT=3 series must show exactly one occurrence on each of days 0–2 and
+    none on day 3 — proving both the rule mapping and the create-span branch.
+    """
+    from datetime import datetime, timedelta
+
+    from apple_mcp.adapters.calendar import CalendarAdapter
+    from apple_mcp.contracts import CalendarEventData, Recurrence
+
+    run_native(request_access)
+    a = CalendarAdapter()
+    start = (datetime.now() + timedelta(days=1)).replace(
+        hour=9, minute=0, second=0, microsecond=0
+    )
+    p = a.create_event(
+        CalendarEventData(
+            title=f"{TITLE_PREFIX} daily series",
+            start=start,
+            end=start + timedelta(hours=1),
+            recurrence=Recurrence.from_rrule("FREQ=DAILY;COUNT=3"),
+        )
+    )
+    created.append(("event", p.id))
+
+    def occ_on(day):
+        return [
+            x
+            for x in a.get_pointers(day.strftime("%Y-%m-%d"))
+            if "daily series" in x.summary
+        ]
+
+    assert all(len(occ_on(start + timedelta(days=d))) == 1 for d in range(3))
+    assert occ_on(start + timedelta(days=3)) == []  # COUNT=3 stops the series
+
+
+@pytest.mark.integration
+def test_reminder_create_recurring(created):
+    """A recurring reminder stores a rule (and requires a due date)."""
+    from datetime import datetime, timedelta
+
+    from apple_mcp.adapters.reminders import RemindersAdapter
+    from apple_mcp.contracts import Recurrence, ReminderData
+
+    run_native(request_access)
+    due = (datetime.now() + timedelta(days=1)).replace(microsecond=0)
+    p = RemindersAdapter().create_reminder(
+        ReminderData(
+            title=f"{TITLE_PREFIX} weekly",
+            due=due,
+            recurrence=Recurrence.from_rrule("FREQ=WEEKLY"),
+        )
+    )
+    created.append(("reminder", p.id))
+    rules = run_native(
+        lambda: store().calendarItemWithIdentifier_(p.id).recurrenceRules()
+    )
+    assert rules and len(rules) == 1

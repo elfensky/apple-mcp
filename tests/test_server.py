@@ -8,7 +8,13 @@ from datetime import datetime
 import pytest
 
 import apple_mcp.server as srv
-from apple_mcp.contracts import CalendarEventData, ContactData, Pointer, ReminderData
+from apple_mcp.contracts import (
+    CalendarEventData,
+    ContactData,
+    Pointer,
+    Recurrence,
+    ReminderData,
+)
 
 
 class _FakeSource:
@@ -70,14 +76,6 @@ def test_notes_tool_dispatches(monkeypatch):
     monkeypatch.setattr(srv, "_notes", fake)
     out = srv.notes("groceries")
     assert fake.queries == ["groceries"]
-    assert out == [{"id": "P-1", "summary": "s", "deeplink": "d"}]
-
-
-def test_music_tool_dispatches(monkeypatch):
-    fake = _FakeSource()
-    monkeypatch.setattr(srv, "_music", fake)
-    out = srv.music("yellow")
-    assert fake.queries == ["yellow"]
     assert out == [{"id": "P-1", "summary": "s", "deeplink": "d"}]
 
 
@@ -250,6 +248,107 @@ def test_create_contact_builds_typed_payload(monkeypatch):
         given_name="Jane", family_name="Doe", organization="Acme"
     )
     assert out == {"id": "C-9", "summary": "s", "deeplink": "d"}
+
+
+def test_create_reminder_passes_priority_and_start(monkeypatch):
+    fake = _FakeWriter()
+    monkeypatch.setattr(srv, "_reminders", fake)
+    srv.create_reminder("Pay rent", priority=1, start="2026-06-25T09:00:00")
+    _, data = fake.calls[0]
+    assert data.priority == 1 and data.start == datetime(2026, 6, 25, 9, 0)
+
+
+def test_create_reminder_rejects_out_of_range_priority(monkeypatch):
+    monkeypatch.setattr(srv, "_reminders", _FakeWriter())
+    with pytest.raises(ValueError, match="priority must be"):
+        srv.create_reminder("x", priority=11)
+
+
+def test_create_event_passes_all_day(monkeypatch):
+    fake = _FakeWriter()
+    monkeypatch.setattr(srv, "_calendar", fake)
+    srv.create_event(
+        "Holiday", start="2026-07-01T00:00:00", end="2026-07-02T00:00:00", all_day=True
+    )
+    _, data = fake.calls[0]
+    assert data.all_day is True
+
+
+def test_create_event_parses_recurrence(monkeypatch):
+    fake = _FakeWriter()
+    monkeypatch.setattr(srv, "_calendar", fake)
+    srv.create_event(
+        "Standup",
+        start="2026-06-24T09:00:00",
+        end="2026-06-24T09:15:00",
+        recurrence="FREQ=WEEKLY;INTERVAL=2",
+    )
+    _, data = fake.calls[0]
+    assert data.recurrence == Recurrence(frequency="weekly", interval=2)
+
+
+def test_create_reminder_parses_recurrence(monkeypatch):
+    fake = _FakeWriter()
+    monkeypatch.setattr(srv, "_reminders", fake)
+    # a recurring reminder needs a due date (EventKit invariant)
+    srv.create_reminder(
+        "Water plants", due="2026-06-25T09:00:00", recurrence="FREQ=DAILY"
+    )
+    _, data = fake.calls[0]
+    assert data.recurrence == Recurrence(frequency="daily")
+
+
+def test_create_reminder_recurrence_without_due_rejected(monkeypatch):
+    monkeypatch.setattr(srv, "_reminders", _FakeWriter())
+    with pytest.raises(ValueError, match="needs a due date"):
+        srv.create_reminder("Water plants", recurrence="FREQ=DAILY")
+
+
+def test_create_event_rejects_bad_rrule(monkeypatch):
+    monkeypatch.setattr(srv, "_calendar", _FakeWriter())
+    with pytest.raises(ValueError, match="unsupported RRULE"):
+        srv.create_event(
+            "x",
+            start="2026-06-24T09:00:00",
+            end="2026-06-24T09:15:00",
+            recurrence="FREQ=WEEKLY;BYDAY=MO",
+        )
+
+
+def test_run_shortcut_dispatches(monkeypatch):
+    class _FakeShortcuts:
+        def __init__(self):
+            self.calls = []
+
+        def run_shortcut(self, name, input_text=None):
+            self.calls.append((name, input_text))
+            return Pointer(id=name, summary=f"ran {name}", deeplink="")
+
+    fake = _FakeShortcuts()
+    monkeypatch.setattr(srv, "_shortcuts", fake)
+    out = srv.run_shortcut("Driving Mode", input_text="go")
+    assert fake.calls == [("Driving Mode", "go")]
+    assert out == {"id": "Driving Mode", "summary": "ran Driving Mode", "deeplink": ""}
+
+
+def test_safari_open_dispatches(monkeypatch):
+    class _FakeSafari:
+        def __init__(self):
+            self.calls = []
+
+        def open_url(self, url):
+            self.calls.append(url)
+            return Pointer(id=url, summary=f"opened {url}", deeplink=url)
+
+    fake = _FakeSafari()
+    monkeypatch.setattr(srv, "_safari", fake)
+    out = srv.safari_open("example.com")
+    assert fake.calls == ["example.com"]
+    assert out == {
+        "id": "example.com",
+        "summary": "opened example.com",
+        "deeplink": "example.com",
+    }
 
 
 def test_create_event_rejects_empty_start():
