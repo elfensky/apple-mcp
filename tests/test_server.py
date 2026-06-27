@@ -8,7 +8,13 @@ from datetime import datetime
 import pytest
 
 import apple_mcp.server as srv
-from apple_mcp.contracts import CalendarEventData, ContactData, Pointer, ReminderData
+from apple_mcp.contracts import (
+    CalendarEventData,
+    ContactData,
+    Pointer,
+    Recurrence,
+    ReminderData,
+)
 
 
 class _FakeSource:
@@ -266,6 +272,47 @@ def test_create_event_passes_all_day(monkeypatch):
     )
     _, data = fake.calls[0]
     assert data.all_day is True
+
+
+def test_create_event_parses_recurrence(monkeypatch):
+    fake = _FakeWriter()
+    monkeypatch.setattr(srv, "_calendar", fake)
+    srv.create_event(
+        "Standup",
+        start="2026-06-24T09:00:00",
+        end="2026-06-24T09:15:00",
+        recurrence="FREQ=WEEKLY;INTERVAL=2",
+    )
+    _, data = fake.calls[0]
+    assert data.recurrence == Recurrence(frequency="weekly", interval=2)
+
+
+def test_create_reminder_parses_recurrence(monkeypatch):
+    fake = _FakeWriter()
+    monkeypatch.setattr(srv, "_reminders", fake)
+    # a recurring reminder needs a due date (EventKit invariant)
+    srv.create_reminder(
+        "Water plants", due="2026-06-25T09:00:00", recurrence="FREQ=DAILY"
+    )
+    _, data = fake.calls[0]
+    assert data.recurrence == Recurrence(frequency="daily")
+
+
+def test_create_reminder_recurrence_without_due_rejected(monkeypatch):
+    monkeypatch.setattr(srv, "_reminders", _FakeWriter())
+    with pytest.raises(ValueError, match="needs a due date"):
+        srv.create_reminder("Water plants", recurrence="FREQ=DAILY")
+
+
+def test_create_event_rejects_bad_rrule(monkeypatch):
+    monkeypatch.setattr(srv, "_calendar", _FakeWriter())
+    with pytest.raises(ValueError, match="unsupported RRULE"):
+        srv.create_event(
+            "x",
+            start="2026-06-24T09:00:00",
+            end="2026-06-24T09:15:00",
+            recurrence="FREQ=WEEKLY;BYDAY=MO",
+        )
 
 
 def test_run_shortcut_dispatches(monkeypatch):

@@ -435,3 +435,65 @@ def test_reminder_create_with_priority(created):
     created.append(("reminder", p.id))
     prio = run_native(lambda: store().calendarItemWithIdentifier_(p.id).priority())
     assert prio == 1
+
+
+@pytest.mark.integration
+def test_event_create_recurring_series(created):
+    """create_event with an RRULE makes a real repeating series (span=FutureEvents).
+
+    A daily COUNT=3 series must show exactly one occurrence on each of days 0–2 and
+    none on day 3 — proving both the rule mapping and the create-span branch.
+    """
+    from datetime import datetime, timedelta
+
+    from apple_mcp.adapters.calendar import CalendarAdapter
+    from apple_mcp.contracts import CalendarEventData, Recurrence
+
+    run_native(request_access)
+    a = CalendarAdapter()
+    start = (datetime.now() + timedelta(days=1)).replace(
+        hour=9, minute=0, second=0, microsecond=0
+    )
+    p = a.create_event(
+        CalendarEventData(
+            title=f"{TITLE_PREFIX} daily series",
+            start=start,
+            end=start + timedelta(hours=1),
+            recurrence=Recurrence.from_rrule("FREQ=DAILY;COUNT=3"),
+        )
+    )
+    created.append(("event", p.id))
+
+    def occ_on(day):
+        return [
+            x
+            for x in a.get_pointers(day.strftime("%Y-%m-%d"))
+            if "daily series" in x.summary
+        ]
+
+    assert all(len(occ_on(start + timedelta(days=d))) == 1 for d in range(3))
+    assert occ_on(start + timedelta(days=3)) == []  # COUNT=3 stops the series
+
+
+@pytest.mark.integration
+def test_reminder_create_recurring(created):
+    """A recurring reminder stores a rule (and requires a due date)."""
+    from datetime import datetime, timedelta
+
+    from apple_mcp.adapters.reminders import RemindersAdapter
+    from apple_mcp.contracts import Recurrence, ReminderData
+
+    run_native(request_access)
+    due = (datetime.now() + timedelta(days=1)).replace(microsecond=0)
+    p = RemindersAdapter().create_reminder(
+        ReminderData(
+            title=f"{TITLE_PREFIX} weekly",
+            due=due,
+            recurrence=Recurrence.from_rrule("FREQ=WEEKLY"),
+        )
+    )
+    created.append(("reminder", p.id))
+    rules = run_native(
+        lambda: store().calendarItemWithIdentifier_(p.id).recurrenceRules()
+    )
+    assert rules and len(rules) == 1

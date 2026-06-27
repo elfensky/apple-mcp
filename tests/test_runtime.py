@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from datetime import datetime
 
+import EventKit as EK
 import pytest
 
+from apple_mcp.contracts import Recurrence
 from apple_mcp.runtime import (
     AccessDenied,
     _decide,
@@ -16,6 +18,7 @@ from apple_mcp.runtime import (
     run_osascript,
     store,
     to_nsdate,
+    to_recurrence_rule,
 )
 
 
@@ -51,6 +54,25 @@ def test_nsdate_roundtrip():
 def test_due_components_fields():
     c = due_components(datetime(2026, 6, 23, 18, 45))
     assert (c.year(), c.month(), c.day(), c.hour(), c.minute()) == (2026, 6, 23, 18, 45)
+
+
+def test_to_recurrence_rule_frequency_and_interval():
+    # EKRecurrenceRule is a value object — buildable off the worker, no store/TCC.
+    rule = to_recurrence_rule(Recurrence(frequency="weekly", interval=2))
+    assert rule.frequency() == EK.EKRecurrenceFrequencyWeekly
+    assert rule.interval() == 2
+    assert rule.recurrenceEnd() is None  # open-ended
+
+
+def test_to_recurrence_rule_count_end():
+    rule = to_recurrence_rule(Recurrence(frequency="daily", count=5))
+    assert rule.recurrenceEnd().occurrenceCount() == 5
+
+
+def test_to_recurrence_rule_until_end():
+    r = Recurrence(frequency="monthly", until=datetime(2026, 12, 31))
+    end = to_recurrence_rule(r).recurrenceEnd()
+    assert end is not None and end.occurrenceCount() == 0  # date-based, not count
 
 
 def test_run_osascript_returns_output():

@@ -20,7 +20,13 @@ from .adapters.photos import PhotosAdapter
 from .adapters.reminders import RemindersAdapter
 from .adapters.safari import SafariAdapter
 from .adapters.shortcuts import ShortcutsAdapter
-from .contracts import CalendarEventData, ContactData, Pointer, ReminderData
+from .contracts import (
+    CalendarEventData,
+    ContactData,
+    Pointer,
+    Recurrence,
+    ReminderData,
+)
 
 mcp = FastMCP("apple-mcp")
 
@@ -148,6 +154,11 @@ def _priority(n: int) -> int:
     return n
 
 
+def _recurrence(rrule: str | None) -> Recurrence | None:
+    """Optional RFC-5545 RRULE string → Recurrence. Empty/absent → None."""
+    return Recurrence.from_rrule(rrule) if rrule else None
+
+
 @_write_tool
 def create_reminder(
     title: str,
@@ -156,8 +167,9 @@ def create_reminder(
     notes: str | None = None,
     priority: int = 0,
     start: str | None = None,
+    recurrence: str | None = None,
 ) -> dict:
-    """Create a reminder. `due`/`start` are ISO datetimes; `priority` 0–9 (0=none)."""
+    """Create a reminder. `due`/`start` ISO; `priority` 0–9; `recurrence` an RRULE."""
     data = ReminderData(
         title=title,
         due=_parse(due),
@@ -165,6 +177,7 @@ def create_reminder(
         notes=notes,
         priority=_priority(priority),
         start=_parse(start),
+        recurrence=_recurrence(recurrence),
     )
     return _emit(_reminders.create_reminder(data))
 
@@ -178,6 +191,7 @@ def update_reminder(
     notes: str | None = None,
     priority: int = 0,
     start: str | None = None,
+    recurrence: str | None = None,
 ) -> dict:
     """Update a reminder by id (full replace from the given fields)."""
     data = ReminderData(
@@ -187,6 +201,7 @@ def update_reminder(
         notes=notes,
         priority=_priority(priority),
         start=_parse(start),
+        recurrence=_recurrence(recurrence),
     )
     return _emit(_reminders.update_reminder(id, data))
 
@@ -206,9 +221,9 @@ def create_event(
     location: str | None = None,
     notes: str | None = None,
     all_day: bool = False,
+    recurrence: str | None = None,
 ) -> dict:
-    """Create a calendar event. `start`/`end` are ISO datetime strings; `all_day` makes
-    it all-day."""
+    """Create an event. `start`/`end` ISO; `all_day` flag; `recurrence` an RRULE."""
     data = CalendarEventData(
         title=title,
         start=_parse_required("start", start),
@@ -217,6 +232,7 @@ def create_event(
         location=location,
         notes=notes,
         all_day=all_day,
+        recurrence=_recurrence(recurrence),
     )
     return _emit(_calendar.create_event(data))
 
@@ -231,6 +247,7 @@ def update_event(
     location: str | None = None,
     notes: str | None = None,
     all_day: bool = False,
+    recurrence: str | None = None,
 ) -> dict:
     """Update an event by id (full replace from the given fields)."""
     data = CalendarEventData(
@@ -241,6 +258,7 @@ def update_event(
         location=location,
         notes=notes,
         all_day=all_day,
+        recurrence=_recurrence(recurrence),
     )
     return _emit(_calendar.update_event(id, data))
 

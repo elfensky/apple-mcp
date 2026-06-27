@@ -11,7 +11,14 @@ from datetime import datetime, timedelta
 import EventKit as EK
 
 from ..contracts import Pointer, ReminderData
-from ..runtime import due_components, run_native, run_native_async, store, to_nsdate
+from ..runtime import (
+    due_components,
+    run_native,
+    run_native_async,
+    store,
+    to_nsdate,
+    to_recurrence_rule,
+)
 
 # A fetch has no user interaction, so the GCD callback should arrive quickly. Bound the
 # wait so a callback that never fires can't hang the single worker — and every later
@@ -93,6 +100,9 @@ def _apply_reminder(s, r, data: ReminderData) -> None:
     r.setDueDateComponents_(due_components(data.due) if data.due is not None else None)
     r.setStartDateComponents_(
         due_components(data.start) if data.start is not None else None
+    )
+    r.setRecurrenceRules_(  # full-replace: None clears any existing rule
+        [to_recurrence_rule(data.recurrence)] if data.recurrence else None
     )
     r.setCalendar_(_resolve_list(s, data.list_name))
 

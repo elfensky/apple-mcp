@@ -12,7 +12,13 @@ from datetime import datetime, timedelta
 import EventKit as EK
 
 from ..contracts import CalendarEventData, Pointer
-from ..runtime import from_nsdate, run_native, store, to_nsdate
+from ..runtime import (
+    from_nsdate,
+    run_native,
+    store,
+    to_nsdate,
+    to_recurrence_rule,
+)
 
 
 def _range(query: str) -> tuple[datetime, datetime]:
@@ -89,7 +95,16 @@ def _apply_event(s, e, data: CalendarEventData) -> None:
     e.setEndDate_(to_nsdate(data.end))
     e.setLocation_(data.location)  # full-replace: None clears
     e.setNotes_(data.notes)  # full-replace: None clears
+    e.setRecurrenceRules_(  # full-replace: None clears any existing rule
+        [to_recurrence_rule(data.recurrence)] if data.recurrence else None
+    )
     e.setCalendar_(_resolve_calendar(s, data.calendar))
+
+
+def _span(data: CalendarEventData):
+    # A recurrence change defines the whole series, so it must span future events; a
+    # plain edit stays on the single cited occurrence (see _resolve_event).
+    return EK.EKSpanFutureEvents if data.recurrence else EK.EKSpanThisEvent
 
 
 def _resolve_event(s, ident: str):
@@ -156,7 +171,7 @@ class CalendarAdapter:
             s = store()
             e = EK.EKEvent.eventWithEventStore_(s)
             _apply_event(s, e, data)
-            ok, err = s.saveEvent_span_commit_error_(e, EK.EKSpanThisEvent, True, None)
+            ok, err = s.saveEvent_span_commit_error_(e, _span(data), True, None)
             if not ok:
                 raise RuntimeError(f"save event failed: {err}")
             return _event_pointer(e)
@@ -168,7 +183,7 @@ class CalendarAdapter:
             s = store()
             e = _resolve_event(s, ident)
             _apply_event(s, e, data)
-            ok, err = s.saveEvent_span_commit_error_(e, EK.EKSpanThisEvent, True, None)
+            ok, err = s.saveEvent_span_commit_error_(e, _span(data), True, None)
             if not ok:
                 raise RuntimeError(f"save event failed: {err}")
             return _event_pointer(e)
