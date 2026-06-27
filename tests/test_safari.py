@@ -34,3 +34,18 @@ def test_normalize_url_keeps_existing_scheme():
 def test_normalize_url_empty_raises():
     with pytest.raises(ValueError, match="needs a URL"):
         _normalize_url("   ")
+
+
+def test_normalize_url_keeps_host_port():
+    # schemeless host:port must still default to https, not be read as a scheme
+    assert _normalize_url("localhost:8080") == "https://localhost:8080"
+
+
+def test_normalize_url_rejects_file_scheme():
+    with pytest.raises(ValueError, match="http/https"):
+        _normalize_url("file:///etc/passwd")
+
+
+def test_normalize_url_rejects_app_scheme():
+    with pytest.raises(ValueError, match="http/https"):
+        _normalize_url("shortcuts://run-shortcut?name=Evil")

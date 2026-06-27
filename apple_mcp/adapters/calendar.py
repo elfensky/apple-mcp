@@ -95,9 +95,12 @@ def _apply_event(s, e, data: CalendarEventData) -> None:
     e.setEndDate_(to_nsdate(data.end))
     e.setLocation_(data.location)  # full-replace: None clears
     e.setNotes_(data.notes)  # full-replace: None clears
-    e.setRecurrenceRules_(  # full-replace: None clears any existing rule
-        [to_recurrence_rule(data.recurrence)] if data.recurrence else None
-    )
+    # Recurrence is the exception to full-replace: only SET it when provided. Clearing a
+    # series needs EKSpanFutureEvents (see _span), but an omitted recurrence means "edit
+    # this occurrence" (EKSpanThisEvent) — so clearing-on-None would silently detach one
+    # occurrence and leave the series recurring. Leave the rule untouched instead.
+    if data.recurrence is not None:
+        e.setRecurrenceRules_([to_recurrence_rule(data.recurrence)])
     e.setCalendar_(_resolve_calendar(s, data.calendar))
 
 

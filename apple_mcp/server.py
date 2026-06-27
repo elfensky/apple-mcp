@@ -284,9 +284,9 @@ def create_contact(
 
 
 @_write_tool
-def run_shortcut(name: str, input: str | None = None) -> dict:
-    """Run a Shortcut by name; optional text `input`. Returns a pointer."""
-    return _emit(_shortcuts.run_shortcut(name, input))
+def run_shortcut(name: str, input_text: str | None = None) -> dict:
+    """Run a Shortcut by name; optional `input_text` piped in. Returns a pointer."""
+    return _emit(_shortcuts.run_shortcut(name, input_text))
 
 
 @_write_tool

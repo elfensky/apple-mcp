@@ -45,11 +45,22 @@ def _parse(raw: str) -> list[Pointer]:
 
 
 def _normalize_url(url: str) -> str:
-    """Trim and default the scheme to https:// so a bare host still loads."""
+    """Trim, default a bare host to https://, and refuse non-web hierarchical schemes.
+
+    An explicit ``scheme://`` must be http/https — this stops safari_open from being
+    steered (e.g. by prompt injection) into ``file://`` (local files) or app schemes
+    (``shortcuts://`` …). Schemeless input (a bare host or ``host:port``) gets https://.
+    """
     u = url.strip()
     if not u:
         raise ValueError("safari_open needs a URL (got an empty string)")
-    if "://" not in u:
+    if "://" in u:
+        scheme = u.split("://", 1)[0].lower()
+        if scheme not in ("http", "https"):
+            raise ValueError(
+                f"safari_open only opens http/https URLs; got {scheme!r}://"
+            )
+    else:
         u = "https://" + u
     return u
 

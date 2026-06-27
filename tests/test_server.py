@@ -326,7 +326,7 @@ def test_run_shortcut_dispatches(monkeypatch):
 
     fake = _FakeShortcuts()
     monkeypatch.setattr(srv, "_shortcuts", fake)
-    out = srv.run_shortcut("Driving Mode", input="go")
+    out = srv.run_shortcut("Driving Mode", input_text="go")
     assert fake.calls == [("Driving Mode", "go")]
     assert out == {"id": "Driving Mode", "summary": "ran Driving Mode", "deeplink": ""}
 

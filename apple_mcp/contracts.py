@@ -19,7 +19,7 @@ never the full body.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Protocol, runtime_checkable
 
 
@@ -55,24 +55,35 @@ _RRULE_SUPPORTED = ("FREQ", "INTERVAL", "COUNT", "UNTIL")
 
 
 def _rrule_until(v: str) -> datetime:
-    """Parse an RRULE UNTIL (ISO-8601 or RFC-5545 basic), returned naive.
+    """Parse an RRULE UNTIL (ISO-8601 or RFC-5545 basic), returned naive-local.
 
-    fromisoformat turns a trailing ``Z`` into a tz-aware value; the rest of the codebase
-    is naive-local, so drop the tzinfo to stay comparable (UNTIL is a coarse bound).
+    Two corrections over a bare ``replace(tzinfo=None)``: a tz-aware value (trailing
+    ``Z`` / offset) is *converted* to local before the tz is dropped, so the boundary
+    names the instant the caller meant rather than shifting by the local offset; and a
+    date-only UNTIL resolves to end-of-day, so "until 2026-12-31" still includes a 09:00
+    occurrence on the 31st (midnight would drop it).
     """
+    s = v.strip()
     parsed = None
     try:
-        parsed = datetime.fromisoformat(v)  # ISO incl. trailing Z on 3.11+
+        parsed = datetime.fromisoformat(s)  # ISO incl. trailing Z / offset on 3.11+
     except ValueError:
         for fmt in ("%Y%m%dT%H%M%SZ", "%Y%m%dT%H%M%S", "%Y%m%d"):
             try:
-                parsed = datetime.strptime(v, fmt)
+                parsed = datetime.strptime(s, fmt)
+                if fmt.endswith("Z"):  # strptime parses the literal Z but stays naive
+                    parsed = parsed.replace(tzinfo=UTC)
                 break
             except ValueError:
                 continue
     if parsed is None:
         raise ValueError(f"recurrence UNTIL is not a recognizable date: {v!r}")
-    return parsed.replace(tzinfo=None)
+    # tz-aware: convert to local, then go naive — don't just drop the offset
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone().replace(tzinfo=None)
+    if "T" not in s.upper():  # date-only → include the whole final day
+        parsed = parsed.replace(hour=23, minute=59, second=59, microsecond=0)
+    return parsed
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,6 +137,8 @@ class Recurrence:
         if "COUNT" in fields and "UNTIL" in fields:
             raise ValueError("RRULE COUNT and UNTIL are mutually exclusive")
         count = int(fields["COUNT"]) if "COUNT" in fields else None
+        if count is not None and count < 1:
+            raise ValueError(f"RRULE COUNT must be >= 1; got {count}")
         until = _rrule_until(fields["UNTIL"]) if "UNTIL" in fields else None
         return cls(frequency=freq, interval=interval, count=count, until=until)
 
@@ -138,7 +151,7 @@ class ReminderData:
     due: datetime | None = None
     list_name: str | None = None
     notes: str | None = None
-    priority: int = 0  # 0 none, 1–9 (1 highest); checked at the tool boundary
+    priority: int = 0  # 0 none, 1–9 (1 highest); enforced in __post_init__
     start: datetime | None = None  # start date, distinct from due (None clears)
     recurrence: Recurrence | None = None  # repeat rule (None clears)
 
@@ -147,6 +160,12 @@ class ReminderData:
         # it at the boundary as a clear ValueError, not a deep native save failure.
         if self.recurrence is not None and self.due is None:
             raise ValueError("a recurring reminder needs a due date")
+        # EventKit priority is 0 (none) or 1–9 (1 highest); enforce on the contract so
+        # the invariant holds however ReminderData is built, not only via the MCP tool.
+        if not 0 <= self.priority <= 9:
+            raise ValueError(
+                f"reminder priority must be 0–9 (0=none); got {self.priority}"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -160,7 +179,10 @@ class CalendarEventData:
     location: str | None = None
     notes: str | None = None
     all_day: bool = False
-    recurrence: Recurrence | None = None  # repeat rule (None clears)
+    # repeat rule; None leaves an existing series rule untouched (unlike the reminder
+    # case, an event can't be safely un-recurred through the occurrence-edit path —
+    # delete the series instead). See calendar._apply_event.
+    recurrence: Recurrence | None = None
 
 
 @dataclass(frozen=True, slots=True)
