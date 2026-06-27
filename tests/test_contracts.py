@@ -45,6 +45,7 @@ def test_pointer_is_frozen():
 def test_typed_write_payload_defaults():
     r = ReminderData(title="Call dentist")
     assert r.due is None and r.list_name is None
+    assert r.priority == 0 and r.start is None  # unset = no priority, no start date
 
     e = CalendarEventData(
         title="Standup",
@@ -52,6 +53,7 @@ def test_typed_write_payload_defaults():
         end=datetime(2026, 6, 24, 9, 15),
     )
     assert e.calendar is None and e.location is None
+    assert e.all_day is False
 
 
 def test_run_native_runs_on_worker():

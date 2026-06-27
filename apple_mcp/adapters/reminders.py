@@ -89,7 +89,11 @@ def _resolve_list(s, name: str | None):
 def _apply_reminder(s, r, data: ReminderData) -> None:
     r.setTitle_(data.title)
     r.setNotes_(data.notes)  # full-replace: None clears
+    r.setPriority_(data.priority)  # 0 none, 1–9 (1 highest)
     r.setDueDateComponents_(due_components(data.due) if data.due is not None else None)
+    r.setStartDateComponents_(
+        due_components(data.start) if data.start is not None else None
+    )
     r.setCalendar_(_resolve_list(s, data.list_name))
 
 

@@ -59,6 +59,8 @@ class ReminderData:
     due: datetime | None = None
     list_name: str | None = None
     notes: str | None = None
+    priority: int = 0  # 0 none, 1–9 (1 highest); checked at the tool boundary
+    start: datetime | None = None  # start date, distinct from due (None clears)
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,6 +73,7 @@ class CalendarEventData:
     calendar: str | None = None
     location: str | None = None
     notes: str | None = None
+    all_day: bool = False
 
 
 @dataclass(frozen=True, slots=True)

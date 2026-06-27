@@ -84,6 +84,7 @@ def _resolve_calendar(s, name: str | None):
 
 def _apply_event(s, e, data: CalendarEventData) -> None:
     e.setTitle_(data.title)
+    e.setAllDay_(data.all_day)
     e.setStartDate_(to_nsdate(data.start))
     e.setEndDate_(to_nsdate(data.end))
     e.setLocation_(data.location)  # full-replace: None clears

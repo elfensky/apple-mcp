@@ -1,7 +1,8 @@
-"""Safari adapter — Safari.app via osascript (Automation TCC). Read-only: open tabs.
+"""Safari adapter — Safari.app via osascript (Automation TCC). List tabs + open a URL.
 
 Lists every open tab across windows. ``Pointer.id`` and ``deeplink`` are the tab URL;
-``summary`` is the page title. No user input, so no argv. Pointers, not page content.
+``summary`` is the page title. ``open_url`` opens a URL in a new tab. User input goes
+via argv (no injection). Pointers, not page content.
 """
 
 from __future__ import annotations
@@ -19,6 +20,19 @@ _TABS = """tell application "Safari"
   return out
 end tell"""
 
+# A new tab in the front window, or a fresh document if Safari has no window open.
+_OPEN = """on run argv
+  set u to item 1 of argv
+  tell application "Safari"
+    if (count of windows) is 0 then
+      make new document with properties {URL:u}
+    else
+      tell front window to make new tab with properties {URL:u}
+    end if
+  end tell
+  return u
+end run"""
+
 
 def _parse(raw: str) -> list[Pointer]:
     out = []
@@ -30,7 +44,23 @@ def _parse(raw: str) -> list[Pointer]:
     return out
 
 
+def _normalize_url(url: str) -> str:
+    """Trim and default the scheme to https:// so a bare host still loads."""
+    u = url.strip()
+    if not u:
+        raise ValueError("safari_open needs a URL (got an empty string)")
+    if "://" not in u:
+        u = "https://" + u
+    return u
+
+
 class SafariAdapter:
     def get_tabs(self) -> list[Pointer]:
         """All open Safari tabs (id/deeplink = URL, summary = page title)."""
         return _parse(run_osascript(_TABS))
+
+    def open_url(self, url: str) -> Pointer:
+        """Open ``url`` in a new Safari tab (a new window if none is open)."""
+        u = _normalize_url(url)
+        run_osascript(_OPEN, u)
+        return Pointer(id=u, summary=f"opened {u}", deeplink=u)

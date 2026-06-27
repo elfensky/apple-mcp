@@ -330,17 +330,6 @@ def test_notes_search_finds_created():
 
 
 @pytest.mark.integration
-def test_music_search_runs():
-    """#22: Music library search via osascript runs (Automation TCC)."""
-    from apple_mcp.adapters.music import MusicAdapter
-
-    ptrs = MusicAdapter().get_pointers("apple-mcp-no-such-track-zzz")
-    assert isinstance(
-        ptrs, list
-    )  # runs without error (likely empty) — validates the path
-
-
-@pytest.mark.integration
 def test_safari_tabs_runs():
     """#22: Safari open-tabs read via osascript runs (Automation TCC)."""
     from apple_mcp.adapters.safari import SafariAdapter
@@ -371,3 +360,78 @@ def test_shortcuts_list_runs():
 
     ptrs = ShortcutsAdapter().get_pointers()
     assert isinstance(ptrs, list) and all(p.id and p.summary for p in ptrs)
+
+
+@pytest.mark.integration
+def test_run_shortcut_missing_raises():
+    """run_shortcut on an unknown name surfaces a clear RuntimeError."""
+    from apple_mcp.adapters.shortcuts import ShortcutsAdapter
+
+    with pytest.raises(RuntimeError, match="shortcuts run"):
+        ShortcutsAdapter().run_shortcut("apple-mcp-no-such-shortcut-zzz")
+
+
+@pytest.mark.integration
+def test_safari_open_creates_tab():
+    """open_url adds a tab whose URL we can find, then we close it."""
+    from apple_mcp.adapters.safari import SafariAdapter
+    from apple_mcp.runtime import run_osascript
+
+    url = "https://example.com/apple-mcp-test"
+    a = SafariAdapter()
+    p = a.open_url(url)
+    try:
+        assert p.deeplink == url
+        assert any(url in t.id for t in a.get_tabs())
+    finally:
+        run_osascript(
+            "on run argv\n"
+            '  tell application "Safari"\n'
+            "    repeat with w in windows\n"
+            "      repeat with t in (tabs of w whose URL contains (item 1 of argv))\n"
+            "        close t\n"
+            "      end repeat\n"
+            "    end repeat\n"
+            "  end tell\n"
+            "end run",
+            url,
+        )
+
+
+@pytest.mark.integration
+def test_event_create_all_day(created):
+    """all_day=True creates an all-day event (the summary renders it specially)."""
+    from datetime import datetime, timedelta
+
+    from apple_mcp.adapters.calendar import CalendarAdapter
+    from apple_mcp.contracts import CalendarEventData
+
+    run_native(request_access)
+    day = (datetime.now() + timedelta(days=1)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    p = CalendarAdapter().create_event(
+        CalendarEventData(
+            title=f"{TITLE_PREFIX} all-day",
+            start=day,
+            end=day + timedelta(days=1),
+            all_day=True,
+        )
+    )
+    created.append(("event", p.id))
+    assert "all day" in p.summary
+
+
+@pytest.mark.integration
+def test_reminder_create_with_priority(created):
+    """priority is written through and reads back off the stored EKReminder."""
+    from apple_mcp.adapters.reminders import RemindersAdapter
+    from apple_mcp.contracts import ReminderData
+
+    run_native(request_access)
+    p = RemindersAdapter().create_reminder(
+        ReminderData(title=f"{TITLE_PREFIX} prio", priority=1)
+    )
+    created.append(("reminder", p.id))
+    prio = run_native(lambda: store().calendarItemWithIdentifier_(p.id).priority())
+    assert prio == 1
