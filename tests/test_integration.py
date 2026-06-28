@@ -497,3 +497,54 @@ def test_reminder_create_recurring(created):
         lambda: store().calendarItemWithIdentifier_(p.id).recurrenceRules()
     )
     assert rules and len(rules) == 1
+
+
+@pytest.mark.integration
+def test_notes_all_and_bodies_and_delete_roundtrip():
+    """Create a note with newlines+tabs, find it via get_all, hydrate its body
+    byte-for-byte, then delete it with a matching expect_title."""
+    from apple_mcp.adapters.notes import _BODIES, _LIST_ALL, NotesAdapter  # noqa: F401
+    from apple_mcp.runtime import run_osascript  # noqa: F401
+
+    notes = NotesAdapter()
+    title = "apple-mcp-itest-note"
+    body_marker = "line one\nline two\tindented\nline three"
+
+    # create a note via osascript (test-only helper; not part of the shipped surface)
+    create = (
+        "on run argv\n"
+        '  tell application "Notes"\n'
+        '    make new note at folder "Notes" of account 1 '
+        "with properties {name:(item 1 of argv), body:(item 2 of argv)}\n"
+        "  end tell\n"
+        "end run"
+    )
+    run_osascript(create, title, body_marker)
+
+    try:
+        # get_all finds it, with an account-qualified folder
+        all_ptrs = notes.get_all()
+        mine = [p for p in all_ptrs if p.summary == title]
+        assert mine, "created note not returned by get_all"
+        ptr = mine[0]
+        assert ptr.folder and " / " in ptr.folder  # "Account / Folder"
+
+        # body hydrates byte-for-byte (newlines + tabs survive the control-char framing)
+        bodies = notes.get_bodies([ptr.id])
+        assert len(bodies) == 1 and bodies[0]["id"] == ptr.id
+        assert "line two\tindented" in bodies[0]["body"]
+        assert "line one\nline two" in bodies[0]["body"]
+
+        # mismatched expect_title refuses to delete
+        with pytest.raises(RuntimeError):
+            notes.delete(ptr.id, expect_title="wrong title")
+        assert any(p.summary == title for p in notes.get_all())
+
+        # matching expect_title deletes (moves to Recently Deleted)
+        notes.delete(ptr.id, expect_title=title)
+        assert not any(p.summary == title for p in notes.get_all())
+    finally:
+        # best-effort cleanup if an assertion left the note behind
+        for p in notes.get_all():
+            if p.summary == title:
+                notes.delete(p.id)
