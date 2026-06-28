@@ -373,3 +373,20 @@ def test_read_only_falsy(monkeypatch, val):
 def test_read_only_unset_is_false(monkeypatch):
     monkeypatch.delenv("APPLE_MCP_READ_ONLY", raising=False)
     assert srv._read_only() is False
+
+
+def test_emit_omits_folder_when_none():
+    out = srv._emit(Pointer(id="P-1", summary="s", deeplink="d"))
+    assert out == {"id": "P-1", "summary": "s", "deeplink": "d"}
+
+
+def test_emit_includes_folder_when_set():
+    out = srv._emit(
+        Pointer(id="P-1", summary="s", deeplink="d", folder="iCloud / Notes")
+    )
+    assert out == {
+        "id": "P-1",
+        "summary": "s",
+        "deeplink": "d",
+        "folder": "iCloud / Notes",
+    }

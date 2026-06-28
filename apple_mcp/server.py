@@ -42,7 +42,10 @@ _shortcuts = ShortcutsAdapter()
 
 
 def _emit(p: Pointer) -> dict[str, str]:
-    return {"id": p.id, "summary": p.summary, "deeplink": p.deeplink}
+    d = {"id": p.id, "summary": p.summary, "deeplink": p.deeplink}
+    if p.folder is not None:
+        d["folder"] = p.folder
+    return d
 
 
 def _read_only() -> bool:

@@ -135,3 +135,13 @@ def test_reminder_rejects_out_of_range_priority():
 
 def test_run_native_runs_on_worker():
     assert run_native(lambda: 2 + 2) == 4
+
+
+def test_pointer_folder_defaults_none():
+    p = Pointer(id="x", summary="s", deeplink="d")
+    assert p.folder is None
+
+
+def test_pointer_folder_set():
+    p = Pointer(id="x", summary="s", deeplink="d", folder="iCloud / Notes")
+    assert p.folder == "iCloud / Notes"
