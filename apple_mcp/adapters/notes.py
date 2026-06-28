@@ -13,6 +13,7 @@ from ..contracts import Pointer
 from ..runtime import run_osascript
 
 MAX_NOTES = 25
+MAX_BODIES = 50
 
 _SEARCH = """on run argv
   set q to item 1 of argv
@@ -55,6 +56,27 @@ _LIST_ALL = """on run argv
   return theLines as text
 end run"""
 
+# note_bodies: opt-in, batched body hydration. plaintext contains newlines/tabs,
+# so a line/tab-delimited format can't frame it — use ASCII control chars that
+# text never carries: US (\x1f, character id 31) between id and body, RS (\x1e,
+# character id 30) between records. A literal-text sentinel (e.g. "@@@END@@@")
+# could appear in a body and corrupt parsing; control chars effectively cannot.
+# Unknown ids are skipped (try).
+_BODIES = """on run argv
+  set us to character id 31
+  set rs to character id 30
+  set out to ""
+  tell application "Notes"
+    repeat with theId in argv
+      try
+        set body to plaintext of note id theId
+        set out to out & theId & us & body & rs
+      end try
+    end repeat
+  end tell
+  return out
+end run"""
+
 
 def _parse(raw: str) -> list[Pointer]:
     out = []
@@ -88,6 +110,16 @@ def _parse_all(raw: str) -> list[Pointer]:
     return out
 
 
+def _parse_bodies(raw: str) -> list[dict]:
+    out = []
+    for record in raw.split("\x1e"):
+        ident, sep, body = record.partition("\x1f")
+        if not sep:  # trailing "" after final RS, or a malformed record — skip
+            continue
+        out.append({"id": ident.strip(), "body": body})
+    return out
+
+
 class NotesAdapter:
     def get_pointers(self, query: str) -> list[Pointer]:
         """query: a title substring to find."""
@@ -103,3 +135,17 @@ class NotesAdapter:
         osascript 30s timeout, in which case the whole call fails (no partial results).
         """
         return _parse_all(run_osascript(_LIST_ALL))
+
+    def get_bodies(self, ids: list[str]) -> list[dict]:
+        """Hydrate plaintext bodies for up to MAX_BODIES ids → [{"id", "body"}].
+
+        Unknown ids are silently skipped; the caller diffs returned vs requested ids.
+        """
+        if not ids:
+            raise ValueError("note_bodies needs at least one note id")
+        if len(ids) > MAX_BODIES:
+            raise ValueError(
+                f"note_bodies accepts at most {MAX_BODIES} ids per call; "
+                f"got {len(ids)} — chunk your requests"
+            )
+        return _parse_bodies(run_osascript(_BODIES, *ids))

@@ -2,7 +2,15 @@
 
 from __future__ import annotations
 
-from apple_mcp.adapters.notes import _parse, _parse_all
+import pytest
+
+from apple_mcp.adapters.notes import (
+    MAX_BODIES,
+    NotesAdapter,
+    _parse,
+    _parse_all,
+    _parse_bodies,
+)
 from apple_mcp.contracts import Pointer
 
 
@@ -48,3 +56,36 @@ def test_parse_all_untitled():
 
 def test_parse_all_skips_blank():
     assert _parse_all("\n   \n") == []
+
+
+def test_parse_bodies_basic():
+    raw = "id1\x1fHello\x1eid2\x1fWorld\x1e"
+    assert _parse_bodies(raw) == [
+        {"id": "id1", "body": "Hello"},
+        {"id": "id2", "body": "World"},
+    ]
+
+
+def test_parse_bodies_preserves_newlines_and_tabs():
+    raw = "id1\x1fline one\nline two\tindented\x1e"
+    out = _parse_bodies(raw)
+    assert out == [{"id": "id1", "body": "line one\nline two\tindented"}]
+
+
+def test_parse_bodies_keeps_empty_body():
+    assert _parse_bodies("id1\x1f\x1e") == [{"id": "id1", "body": ""}]
+
+
+def test_parse_bodies_skips_trailing_and_malformed():
+    # trailing "" after final RS, and a record with no US separator, are skipped
+    assert _parse_bodies("id1\x1fHi\x1emalformed\x1e") == [{"id": "id1", "body": "Hi"}]
+
+
+def test_get_bodies_rejects_empty():
+    with pytest.raises(ValueError, match="at least one note id"):
+        NotesAdapter().get_bodies([])
+
+
+def test_get_bodies_rejects_oversize():
+    with pytest.raises(ValueError, match="at most 50"):
+        NotesAdapter().get_bodies([f"id{i}" for i in range(MAX_BODIES + 1)])

@@ -409,3 +409,16 @@ def test_emit_includes_folder_when_set():
         "deeplink": "d",
         "folder": "iCloud / Notes",
     }
+
+
+def test_note_bodies_dispatches(monkeypatch):
+    class _FakeNotes:
+        def get_bodies(self, ids):
+            self.got = ids
+            return [{"id": ids[0], "body": "B"}]
+
+    fake = _FakeNotes()
+    monkeypatch.setattr(srv, "_notes", fake)
+    out = srv.note_bodies(["N-1"])
+    assert fake.got == ["N-1"]
+    assert out == [{"id": "N-1", "body": "B"}]

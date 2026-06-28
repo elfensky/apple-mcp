@@ -116,6 +116,13 @@ def notes_all() -> list[dict]:
 
 
 @mcp.tool()
+def note_bodies(ids: list[str]) -> list[dict]:
+    """Hydrate plaintext bodies for up to 50 note ids (opt-in; search stays
+    pointer-only). Returns [{"id", "body"}]; unknown ids are silently skipped."""
+    return _notes.get_bodies(ids)
+
+
+@mcp.tool()
 def safari_tabs() -> list[dict]:
     """List open Safari tabs as pointers (url + title)."""
     return [_emit(p) for p in _safari.get_tabs()]
