@@ -3,7 +3,7 @@ EventKit writes)."""
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from types import SimpleNamespace
 
 import Foundation as F
@@ -67,17 +67,35 @@ def test_range_explicit_date():
     assert start == datetime(2026, 12, 25) and (end - start).days == 1
 
 
-def test_all_day_bounds_snaps_same_day_to_full_day():
-    # a timed same-day range with all_day → date-only bounds spanning one full day, so a
-    # stored time can't drift on CalDAV roundtrips.
+def test_all_day_bounds_same_day_stays_one_day():
+    # a timed same-day range → date-only bounds with end == start. EventKit's all-day
+    # end is inclusive (verified on-device), so end == start IS a single day — bumping
+    # it a day would make a 2-day event.
     s, e = _all_day_bounds(datetime(2026, 7, 1, 9, 30), datetime(2026, 7, 1, 10, 45))
     assert s == datetime(2026, 7, 1)
-    assert e == datetime(2026, 7, 2)  # collapsed zero span lifts to a single full day
+    assert e == datetime(2026, 7, 1)
 
 
 def test_all_day_bounds_preserves_multiday_span():
+    # Jul 1 09:00 → Jul 3 10:00 spans 3 calendar days; inclusive end keeps end == Jul 3.
     s, e = _all_day_bounds(datetime(2026, 7, 1, 9, 0), datetime(2026, 7, 3, 10, 0))
     assert s == datetime(2026, 7, 1) and e == datetime(2026, 7, 3)
+
+
+def test_all_day_bounds_clamps_reversed_span_to_one_day():
+    # a genuinely reversed range (end before start) clamps to a single day, not an
+    # invalid reversed span handed to EventKit.
+    s, e = _all_day_bounds(datetime(2026, 7, 10), datetime(2026, 7, 5))
+    assert s == datetime(2026, 7, 10) and e == datetime(2026, 7, 10)
+
+
+def test_all_day_bounds_drops_tzinfo_so_mixed_naive_aware_cannot_crash():
+    # a tz-aware start + naive end (each parsed independently at the tool boundary) must
+    # not raise on the e < s compare; all-day bounds are a date, so tz is dropped.
+    aware = datetime(2026, 7, 1, 9, 0, tzinfo=UTC)
+    s, e = _all_day_bounds(aware, datetime(2026, 7, 1, 10, 0))
+    assert s == datetime(2026, 7, 1) and e == datetime(2026, 7, 1)
+    assert s.tzinfo is None and e.tzinfo is None
 
 
 def _fake_store(cal_names, default="Home"):

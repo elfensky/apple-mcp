@@ -99,6 +99,20 @@ def test_run_shortcut_reads_output_bounded(monkeypatch):
     assert len(p.summary) <= len("ran Dump → ") + MAX_OUTPUT + 1
 
 
+def test_run_shortcut_tolerates_directory_output(monkeypatch):
+    # a shortcut whose --output-path lands a directory (not a file) must not crash the
+    # worker: open() raises IsADirectoryError, which maps to "no usable result", same as
+    # a missing file.
+    import os
+
+    def fake(cmd, **kw):
+        os.mkdir(cmd[cmd.index("--output-path") + 1])
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    monkeypatch.setattr("apple_mcp.adapters.shortcuts.subprocess.run", fake)
+    assert ShortcutsAdapter().run_shortcut("Folder").summary == "ran Folder"
+
+
 def test_run_shortcut_raises_on_nonzero(monkeypatch):
     _fake_run(monkeypatch, returncode=1, stderr="no such shortcut")
     with pytest.raises(RuntimeError, match="shortcuts run"):

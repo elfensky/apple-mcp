@@ -64,6 +64,10 @@ class ShortcutsAdapter:
         if not name:
             raise ValueError("run_shortcut needs a shortcut name (got an empty name)")
         with tempfile.TemporaryDirectory(prefix="apple-mcp-shortcut-") as tmp:
+            # ponytail: --output-path bounds *memory* (we read back only a snippet,
+            # see below), not disk — a huge result writes fully here first. Fine: the
+            # dir is torn down on block exit and the write is capped by _RUN_TIMEOUT.
+            # Add an os.path.getsize guard before the read if disk pressure shows up.
             out_path = os.path.join(tmp, "out")
             cmd = ["shortcuts", "run", name, "--output-path", out_path]
             if input_text is not None:
@@ -85,6 +89,6 @@ class ShortcutsAdapter:
                 # decode; read only a snippet, never the whole payload.
                 with open(out_path, encoding="utf-8", errors="replace") as f:
                     output = f.read(MAX_OUTPUT + 1)
-            except FileNotFoundError:
-                output = ""  # the shortcut produced no result file
+            except (FileNotFoundError, IsADirectoryError):
+                output = ""  # no usable result file (none written, or a dir not a file)
         return _run_pointer(name, output)

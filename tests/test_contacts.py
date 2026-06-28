@@ -2,8 +2,30 @@
 
 from __future__ import annotations
 
-from apple_mcp.adapters.contacts import _FIELD, _RECORD, _deeplink, _parse, _summary
+from apple_mcp.adapters.contacts import (
+    _FIELD,
+    _RECORD,
+    MAX_CONTACTS,
+    ContactsAdapter,
+    _deeplink,
+    _parse,
+    _summary,
+)
 from apple_mcp.contracts import Pointer
+
+
+def test_get_pointers_passes_cap_into_applescript(monkeypatch):
+    # the cap must reach the AppleScript (so it stops fetching after MAX_CONTACTS) —
+    # not just trim in Python after the fact. Assert it's forwarded as an argv arg.
+    seen: dict = {}
+
+    def fake(script, *args, **kw):
+        seen["args"] = args
+        return ""  # no matches; we only care about the call shape
+
+    monkeypatch.setattr("apple_mcp.adapters.contacts.run_osascript", fake)
+    ContactsAdapter().get_pointers("jane")
+    assert seen["args"] == ("jane", str(MAX_CONTACTS))
 
 
 def test_summary_name_and_org():
