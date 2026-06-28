@@ -1,4 +1,4 @@
-# apple-mcp
+# mac-mcp
 
 One consolidated [MCP](https://modelcontextprotocol.io) server for native macOS apps —
 **Calendar & Reminders** read/write, plus read-only context and a few actions across Mail,
@@ -16,7 +16,7 @@ See [DESIGN.md](DESIGN.md) for the rationale and [CHANGELOG.md](CHANGELOG.md) fo
 ## Tools
 
 Reads return pointers; results are capped per adapter. Writes/actions are skipped entirely when
-`APPLE_MCP_READ_ONLY` is set (see below).
+`MAC_MCP_READ_ONLY` is set (see below).
 
 ### Calendar & Reminders — read/write (EventKit)
 
@@ -58,7 +58,7 @@ unsupported parts (`BYDAY`, …) are rejected rather than silently ignored.
 
 ### Read-only mode
 
-Set `APPLE_MCP_READ_ONLY=1` (or `true` / `yes`) to register reads only — every write and action
+Set `MAC_MCP_READ_ONLY=1` (or `true` / `yes`) to register reads only — every write and action
 tool above is skipped, a safe-deploy guard.
 
 ## Develop
@@ -69,7 +69,7 @@ uv run pytest                   # unit tests (mock at the adapter boundary)
 uv run pytest -m integration    # real macOS / EventKit / TCC — run manually, never in CI
 uv run ruff check .             # lint (config in pyproject.toml)
 uv run ruff format .            # format
-uv run apple-mcp                # run the server (stdio)
+uv run mac-mcp                # run the server (stdio)
 ```
 
 ruff (lint + format, line-length 88) and pytest gate CI — full workflow in
@@ -82,9 +82,9 @@ Launch off the project's own venv python — deterministic, and it carries the l
 ```json
 {
   "mcpServers": {
-    "apple-mcp": {
-      "command": "/Users/you/Developer/apple-mcp/.venv/bin/python",
-      "args": ["-m", "apple_mcp"]
+    "mac-mcp": {
+      "command": "/Users/you/Developer/mac-mcp/.venv/bin/python",
+      "args": ["-m", "mac_mcp"]
     }
   }
 }
@@ -95,7 +95,7 @@ Grant access when macOS prompts (TCC) — the first call to each app triggers it
 
 ## Prior art & credits
 
-apple-mcp builds on prior work — the Apple Mail MCP it draws from, the EventKit/Photos servers it
+mac-mcp builds on prior work — the Apple Mail MCP it draws from, the EventKit/Photos servers it
 references, the project that pioneered the unified-Apple-MCP pattern, and FastMCP / PyObjC / the MCP
 spec it depends on. See [CREDITS.md](CREDITS.md).
 </content>

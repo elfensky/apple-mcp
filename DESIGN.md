@@ -1,4 +1,4 @@
-# apple-mcp — design
+# mac-mcp — design
 
 One consolidated MCP server (Python, FastMCP 2.0) exposing native macOS apps to LLM agents (Claude
 Code / Desktop), replacing the two servers a life-cockpit otherwise consumes — `apple-events`
@@ -21,8 +21,8 @@ native data-plane adapter, so clean module boundaries are load-bearing.
 - **FastMCP 2.0 (standalone)** — not the official SDK's vendored `mcp.server.fastmcp` (1.x, lags the
   spec), not the low-level `Server` (boilerplate). Thin tool layer → low lock-in.
 - **`uv`** for dev (`uv sync` / `uv lock` / `uv run`); the MCP launches deterministically **off the
-  venv python**: `command: <repo>/.venv/bin/python`, `args: ["-m","apple_mcp"]` (or `uv run --frozen
-  --project <repo> apple-mcp`). Not `uvx` (ephemeral), not a system console_script (no lockfile / may
+  venv python**: `command: <repo>/.venv/bin/python`, `args: ["-m","mac_mcp"]` (or `uv run --frozen
+  --project <repo> mac-mcp`). Not `uvx` (ephemeral), not a system console_script (no lockfile / may
   lack PyObjC wheels). The same invocation becomes a launchd daemon later.
 - **Adapter contract = typed `Protocol`; reads uniform, writes per-adapter typed.** A shared
   `PointerSource` Protocol (`get_pointers(query) -> list[Pointer]`); writes are typed methods
@@ -41,7 +41,7 @@ native data-plane adapter, so clean module boundaries are load-bearing.
 ## Layout
 
 ```
-apple_mcp/
+mac_mcp/
   server.py        # FastMCP app: @mcp.tool() registrations = thin dispatch to adapters
   contracts.py     # Pointer + PointerSource Protocol (reads); typed write dataclasses
   runtime.py       # the single serialized EventKit worker thread + native-call dispatch
@@ -92,4 +92,4 @@ thin read adapters plus a few actions — each still returning only pointers:
 
 ## Tracking
 Work breakdown lives as GitHub issues. The life-cockpit tracks this repo under `#personal`
-(tracker `elfensky/apple-mcp`) and pulls issues onto its board via `/sync`.
+(tracker `elfensky/mac-mcp`) and pulls issues onto its board via `/sync`.

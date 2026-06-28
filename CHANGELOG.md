@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to apple-mcp are documented here. The format follows
+All notable changes to mac-mcp are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project is pre-1.0, so the public
 surface may still shift between minor versions.
 
