@@ -1,6 +1,6 @@
-"""apple-mcp — FastMCP server.
+"""mac-mcp — FastMCP server.
 
-Tools are *thin dispatch* to adapters (see contracts.py). Set APPLE_MCP_READ_ONLY=1 to
+Tools are *thin dispatch* to adapters (see contracts.py). Set MAC_MCP_READ_ONLY=1 to
 register reads only (the destructive write tools are skipped) — a safe-deploy guard.
 """
 
@@ -28,7 +28,7 @@ from .contracts import (
     ReminderData,
 )
 
-mcp = FastMCP("apple-mcp")
+mcp = FastMCP("mac-mcp")
 
 _reminders = RemindersAdapter()
 _calendar = CalendarAdapter()
@@ -49,8 +49,8 @@ def _emit(p: Pointer) -> dict[str, str]:
 
 
 def _read_only() -> bool:
-    """True when APPLE_MCP_READ_ONLY is set; writes are then not registered."""
-    val = os.environ.get("APPLE_MCP_READ_ONLY", "").strip().lower()
+    """True when MAC_MCP_READ_ONLY is set; writes are then not registered."""
+    val = os.environ.get("MAC_MCP_READ_ONLY", "").strip().lower()
     return val in ("1", "true", "yes")
 
 
@@ -61,8 +61,8 @@ def _write_tool(fn):
 
 @mcp.tool()
 def ping() -> str:
-    """Health check — confirms apple-mcp is alive."""
-    return "apple-mcp ok"
+    """Health check — confirms mac-mcp is alive."""
+    return "mac-mcp ok"
 
 
 @mcp.tool()
@@ -322,7 +322,7 @@ def safari_open(url: str) -> dict:
 
 
 def main() -> None:
-    """Console entry point (`apple-mcp`) and `python -m apple_mcp`."""
+    """Console entry point (`mac-mcp`) and `python -m mac_mcp`."""
     from .runtime import bootstrap
 
     bootstrap()

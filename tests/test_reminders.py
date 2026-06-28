@@ -6,13 +6,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from apple_mcp.adapters.reminders import (
+from mac_mcp.adapters.reminders import (
     _reminder_deeplink,
     _reminder_pointer,
     _reminder_summary,
     _resolve_list,
 )
-from apple_mcp.contracts import Pointer
+from mac_mcp.contracts import Pointer
 
 
 def _fake_reminder(title, ident, due=None):

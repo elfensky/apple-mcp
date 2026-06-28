@@ -64,9 +64,9 @@ def _decide(status: int) -> None:
     if status == _FULL_ACCESS:
         return
     raise AccessDenied(
-        "apple-mcp needs Calendar + Reminders access. Grant it in "
+        "mac-mcp needs Calendar + Reminders access. Grant it in "
         "System Settings → Privacy & Security → Calendars and Reminders, then "
-        "restart apple-mcp."
+        "restart mac-mcp."
     )
 
 
@@ -199,7 +199,7 @@ def to_recurrence_rule(r: Recurrence) -> EK.EKRecurrenceRule:
     )
 
 
-log = logging.getLogger("apple_mcp")
+log = logging.getLogger("mac_mcp")
 
 
 def _request_one(s: EK.EKEventStore, entity: int) -> None:
@@ -251,6 +251,6 @@ def bootstrap() -> None:
             try:
                 _request_one(s, entity)
             except AccessDenied as e:
-                log.warning("apple-mcp starting without one EventKit surface: %s", e)
+                log.warning("mac-mcp starting without one EventKit surface: %s", e)
 
     run_native(_request_all)

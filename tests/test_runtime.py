@@ -7,8 +7,8 @@ from datetime import datetime
 import EventKit as EK
 import pytest
 
-from apple_mcp.contracts import Recurrence
-from apple_mcp.runtime import (
+from mac_mcp.contracts import Recurrence
+from mac_mcp.runtime import (
     AccessDenied,
     _decide,
     due_components,
@@ -99,7 +99,7 @@ def test_run_native_async_times_out():
 
 def test_bootstrap_is_nonfatal_on_denied_surface(monkeypatch):
     # #13 safe-mode: a denied TCC surface must not crash startup.
-    import apple_mcp.runtime as rt
+    import mac_mcp.runtime as rt
 
     def deny(_s, _entity):
         raise rt.AccessDenied("denied")

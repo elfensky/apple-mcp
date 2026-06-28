@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from apple_mcp.adapters.notes import (
+from mac_mcp.adapters.notes import (
     MAX_BODIES,
     NotesAdapter,
     _parse,
     _parse_all,
     _parse_bodies,
 )
-from apple_mcp.contracts import Pointer
+from mac_mcp.contracts import Pointer
 
 
 def test_parse_id_and_title():
@@ -104,7 +104,7 @@ def test_delete_rejects_whitespace():
 def test_delete_passes_id_and_title(monkeypatch):
     calls = []
     monkeypatch.setattr(
-        "apple_mcp.adapters.notes.run_osascript",
+        "mac_mcp.adapters.notes.run_osascript",
         lambda script, *args: calls.append(args) or "",
     )
     NotesAdapter().delete("N-1", expect_title="Milk")
@@ -114,7 +114,7 @@ def test_delete_passes_id_and_title(monkeypatch):
 def test_delete_without_title_passes_only_id(monkeypatch):
     calls = []
     monkeypatch.setattr(
-        "apple_mcp.adapters.notes.run_osascript",
+        "mac_mcp.adapters.notes.run_osascript",
         lambda script, *args: calls.append(args) or "",
     )
     NotesAdapter().delete("N-1")

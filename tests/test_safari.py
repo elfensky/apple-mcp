@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from apple_mcp.adapters.safari import _normalize_url, _parse
-from apple_mcp.contracts import Pointer
+from mac_mcp.adapters.safari import _normalize_url, _parse
+from mac_mcp.contracts import Pointer
 
 
 def test_parse_url_and_title():

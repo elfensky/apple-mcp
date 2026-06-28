@@ -9,14 +9,14 @@ from types import SimpleNamespace
 import Foundation as F
 import pytest
 
-from apple_mcp.adapters.calendar import (
+from mac_mcp.adapters.calendar import (
     _all_day_bounds,
     _event_pointer,
     _event_summary,
     _range,
     _resolve_calendar,
 )
-from apple_mcp.contracts import Pointer
+from mac_mcp.contracts import Pointer
 
 
 def _ns(dt: datetime):

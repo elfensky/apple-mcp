@@ -7,8 +7,8 @@ from datetime import datetime
 
 import pytest
 
-import apple_mcp.server as srv
-from apple_mcp.contracts import (
+import mac_mcp.server as srv
+from mac_mcp.contracts import (
     CalendarEventData,
     ContactData,
     Pointer,
@@ -381,18 +381,18 @@ def test_create_event_rejects_empty_start():
 
 @pytest.mark.parametrize("val", ["1", "true", "TRUE", "yes", "Yes"])
 def test_read_only_truthy(monkeypatch, val):
-    monkeypatch.setenv("APPLE_MCP_READ_ONLY", val)
+    monkeypatch.setenv("MAC_MCP_READ_ONLY", val)
     assert srv._read_only() is True
 
 
 @pytest.mark.parametrize("val", ["", "0", "no", "false", "off"])
 def test_read_only_falsy(monkeypatch, val):
-    monkeypatch.setenv("APPLE_MCP_READ_ONLY", val)
+    monkeypatch.setenv("MAC_MCP_READ_ONLY", val)
     assert srv._read_only() is False
 
 
 def test_read_only_unset_is_false(monkeypatch):
-    monkeypatch.delenv("APPLE_MCP_READ_ONLY", raising=False)
+    monkeypatch.delenv("MAC_MCP_READ_ONLY", raising=False)
     assert srv._read_only() is False
 
 

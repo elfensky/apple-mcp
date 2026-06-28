@@ -10,7 +10,7 @@ import subprocess
 
 import pytest
 
-from apple_mcp.adapters.shortcuts import (
+from mac_mcp.adapters.shortcuts import (
     MAX_OUTPUT,
     MAX_SHORTCUTS,
     ShortcutsAdapter,
@@ -18,7 +18,7 @@ from apple_mcp.adapters.shortcuts import (
     _pointer,
     _run_pointer,
 )
-from apple_mcp.contracts import Pointer
+from mac_mcp.contracts import Pointer
 
 
 def _fake_run(monkeypatch, *, returncode=0, stdout="", stderr=""):
@@ -36,7 +36,7 @@ def _fake_run(monkeypatch, *, returncode=0, stdout="", stderr=""):
                 f.write(stdout)
         return subprocess.CompletedProcess(cmd, returncode, "", stderr)
 
-    monkeypatch.setattr("apple_mcp.adapters.shortcuts.subprocess.run", fake)
+    monkeypatch.setattr("mac_mcp.adapters.shortcuts.subprocess.run", fake)
     return seen
 
 
@@ -109,7 +109,7 @@ def test_run_shortcut_tolerates_directory_output(monkeypatch):
         os.mkdir(cmd[cmd.index("--output-path") + 1])
         return subprocess.CompletedProcess(cmd, 0, "", "")
 
-    monkeypatch.setattr("apple_mcp.adapters.shortcuts.subprocess.run", fake)
+    monkeypatch.setattr("mac_mcp.adapters.shortcuts.subprocess.run", fake)
     assert ShortcutsAdapter().run_shortcut("Folder").summary == "ran Folder"
 
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from apple_mcp.adapters.contacts import (
+from mac_mcp.adapters.contacts import (
     _FIELD,
     _RECORD,
     MAX_CONTACTS,
@@ -11,7 +11,7 @@ from apple_mcp.adapters.contacts import (
     _parse,
     _summary,
 )
-from apple_mcp.contracts import Pointer
+from mac_mcp.contracts import Pointer
 
 
 def test_get_pointers_passes_cap_into_applescript(monkeypatch):
@@ -23,7 +23,7 @@ def test_get_pointers_passes_cap_into_applescript(monkeypatch):
         seen["args"] = args
         return ""  # no matches; we only care about the call shape
 
-    monkeypatch.setattr("apple_mcp.adapters.contacts.run_osascript", fake)
+    monkeypatch.setattr("mac_mcp.adapters.contacts.run_osascript", fake)
     ContactsAdapter().get_pointers("jane")
     assert seen["args"] == ("jane", str(MAX_CONTACTS))
 

@@ -8,14 +8,14 @@ from datetime import UTC, datetime
 
 import pytest
 
-from apple_mcp.contracts import (
+from mac_mcp.contracts import (
     CalendarEventData,
     Pointer,
     PointerSource,
     Recurrence,
     ReminderData,
 )
-from apple_mcp.runtime import run_native
+from mac_mcp.runtime import run_native
 
 
 class FakeReminders:

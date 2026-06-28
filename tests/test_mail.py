@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from apple_mcp.adapters.mail import _deeplink, _parse, _summary
-from apple_mcp.contracts import Pointer
+from mac_mcp.adapters.mail import _deeplink, _parse, _summary
+from mac_mcp.contracts import Pointer
 
 
 def test_summary_subject_and_sender():
