@@ -77,6 +77,22 @@ _BODIES = """on run argv
   return out
 end run"""
 
+# delete_note: moves the note to Recently Deleted (recoverable ~30 days). Notes ids are
+# x-coredata:// URLs that embed the store id → globally unique, so delete-by-id targets
+# exactly one note. expect_title (optional argv[2]) guards against stale/wrong ids: the
+# script errors before deleting if the live title doesn't match.
+_DELETE = """on run argv
+  tell application "Notes"
+    set n to note id (item 1 of argv)
+    if (count of argv) > 1 then
+      if (name of n) is not (item 2 of argv) then
+        error "note title does not match expect_title"
+      end if
+    end if
+    delete n
+  end tell
+end run"""
+
 
 def _parse(raw: str) -> list[Pointer]:
     out = []
@@ -149,3 +165,16 @@ class NotesAdapter:
                 f"got {len(ids)} — chunk your requests"
             )
         return _parse_bodies(run_osascript(_BODIES, *ids))
+
+    def delete(self, ident: str, expect_title: str | None = None) -> None:
+        """Delete a note by id → Recently Deleted (recoverable). Content-verify first.
+
+        When expect_title is given, the note is deleted only if its current title
+        matches.
+        """
+        if not ident.strip():
+            raise ValueError("delete_note needs a note id")
+        if expect_title is not None:
+            run_osascript(_DELETE, ident, expect_title)
+        else:
+            run_osascript(_DELETE, ident)

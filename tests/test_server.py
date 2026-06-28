@@ -422,3 +422,18 @@ def test_note_bodies_dispatches(monkeypatch):
     out = srv.note_bodies(["N-1"])
     assert fake.got == ["N-1"]
     assert out == [{"id": "N-1", "body": "B"}]
+
+
+def test_delete_note_dispatches(monkeypatch):
+    class _FakeNotes:
+        def __init__(self):
+            self.calls = []
+
+        def delete(self, ident, expect_title=None):
+            self.calls.append((ident, expect_title))
+
+    fake = _FakeNotes()
+    monkeypatch.setattr(srv, "_notes", fake)
+    out = srv.delete_note("N-1", expect_title="Milk")
+    assert fake.calls == [("N-1", "Milk")]
+    assert out == {"deleted": "N-1"}

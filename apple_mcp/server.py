@@ -289,6 +289,14 @@ def delete_event(id: str) -> dict:
 
 
 @_write_tool
+def delete_note(id: str, expect_title: str | None = None) -> dict:
+    """Delete a note by id → Recently Deleted (recoverable ~30 days). Destructive.
+    Pass expect_title to verify the target before deleting (content-verify first)."""
+    _notes.delete(id, expect_title)
+    return {"deleted": id}
+
+
+@_write_tool
 def create_contact(
     given_name: str,
     family_name: str | None = None,

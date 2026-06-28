@@ -89,3 +89,33 @@ def test_get_bodies_rejects_empty():
 def test_get_bodies_rejects_oversize():
     with pytest.raises(ValueError, match="at most 50"):
         NotesAdapter().get_bodies([f"id{i}" for i in range(MAX_BODIES + 1)])
+
+
+def test_delete_rejects_empty():
+    with pytest.raises(ValueError, match="needs a note id"):
+        NotesAdapter().delete("")
+
+
+def test_delete_rejects_whitespace():
+    with pytest.raises(ValueError, match="needs a note id"):
+        NotesAdapter().delete("   ")
+
+
+def test_delete_passes_id_and_title(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        "apple_mcp.adapters.notes.run_osascript",
+        lambda script, *args: calls.append(args) or "",
+    )
+    NotesAdapter().delete("N-1", expect_title="Milk")
+    assert calls == [("N-1", "Milk")]
+
+
+def test_delete_without_title_passes_only_id(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        "apple_mcp.adapters.notes.run_osascript",
+        lambda script, *args: calls.append(args) or "",
+    )
+    NotesAdapter().delete("N-1")
+    assert calls == [("N-1",)]
