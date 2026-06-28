@@ -34,6 +34,11 @@ class _FakeSource:
         self.enumerated += 1
         return [Pointer(id="C-1", summary="Work", deeplink="")]
 
+    def get_all(self) -> list[Pointer]:
+        return [
+            Pointer(id="N-1", summary="Milk", deeplink="", folder="iCloud / Groceries")
+        ]
+
 
 def test_server_constructs():
     assert srv.mcp is not None
@@ -77,6 +82,20 @@ def test_notes_tool_dispatches(monkeypatch):
     out = srv.notes("groceries")
     assert fake.queries == ["groceries"]
     assert out == [{"id": "P-1", "summary": "s", "deeplink": "d"}]
+
+
+def test_notes_all_dispatches(monkeypatch):
+    fake = _FakeSource()
+    monkeypatch.setattr(srv, "_notes", fake)
+    out = srv.notes_all()
+    assert out == [
+        {
+            "id": "N-1",
+            "summary": "Milk",
+            "deeplink": "",
+            "folder": "iCloud / Groceries",
+        }
+    ]
 
 
 def test_safari_tabs_dispatches(monkeypatch):

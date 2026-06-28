@@ -108,6 +108,14 @@ def notes(title: str) -> list[dict]:
 
 
 @mcp.tool()
+def notes_all() -> list[dict]:
+    """List every note as pointers (id + "Account / Folder" + title), excluding
+    Recently Deleted. No cap; very large libraries can hit the osascript timeout
+    (all-or-nothing)."""
+    return [_emit(p) for p in _notes.get_all()]
+
+
+@mcp.tool()
 def safari_tabs() -> list[dict]:
     """List open Safari tabs as pointers (url + title)."""
     return [_emit(p) for p in _safari.get_tabs()]
