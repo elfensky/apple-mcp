@@ -35,6 +35,7 @@ class _FakeSource:
         return [Pointer(id="C-1", summary="Work", deeplink="")]
 
     def get_all(self) -> list[Pointer]:
+        self.enumerated += 1
         return [
             Pointer(id="N-1", summary="Milk", deeplink="", folder="iCloud / Groceries")
         ]
@@ -88,6 +89,7 @@ def test_notes_all_dispatches(monkeypatch):
     fake = _FakeSource()
     monkeypatch.setattr(srv, "_notes", fake)
     out = srv.notes_all()
+    assert fake.enumerated == 1
     assert out == [
         {
             "id": "N-1",

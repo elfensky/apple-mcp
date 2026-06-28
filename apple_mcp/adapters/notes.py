@@ -167,10 +167,11 @@ class NotesAdapter:
         return _parse_bodies(run_osascript(_BODIES, *ids))
 
     def delete(self, ident: str, expect_title: str | None = None) -> None:
-        """Delete a note by id → Recently Deleted (recoverable). Content-verify first.
+        """Delete a note by id → Recently Deleted (recoverable).
 
         When expect_title is given, the note is deleted only if its current title
-        matches.
+        matches — content-verify first by passing it. Without it, delete-by-id fires
+        immediately (ids are globally unique, but a stale id deletes the wrong note).
         """
         if not ident.strip():
             raise ValueError("delete_note needs a note id")
