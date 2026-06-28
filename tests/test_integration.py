@@ -503,8 +503,8 @@ def test_reminder_create_recurring(created):
 def test_notes_all_and_bodies_and_delete_roundtrip():
     """Create a note with newlines+tabs, find it via get_all, hydrate its body
     byte-for-byte, then delete it with a matching expect_title."""
-    from apple_mcp.adapters.notes import _BODIES, _LIST_ALL, NotesAdapter  # noqa: F401
-    from apple_mcp.runtime import run_osascript  # noqa: F401
+    from apple_mcp.adapters.notes import NotesAdapter
+    from apple_mcp.runtime import run_osascript
 
     notes = NotesAdapter()
     title = "apple-mcp-itest-note"
