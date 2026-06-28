@@ -16,7 +16,7 @@ which forces a distribution rename; the user chose to migrate **all** naming for
 | Code rename depth | **Full** — `apple_mcp/` → `mac_mcp/`, every import, the console script, the FastMCP server name, and the env var |
 | Env var | `APPLE_MCP_READ_ONLY` → `MAC_MCP_READ_ONLY`, **no** backward-compat alias (zero public users pre-release — YAGNI) |
 | License | MIT, © 2026 Andrei Lavrenov |
-| Publish mechanism | Automated on `v*` tag: build → PyPI Trusted Publishing (OIDC, no stored tokens) → GitHub Release with notes from CHANGELOG |
+| Publish mechanism | **Mirror `../lintle`**: push to `main` → auto TestPyPI; `workflow_dispatch` (target `pypi`) → production PyPI. Trusted Publishing (OIDC, no stored tokens). Job runs on `macos-latest` (PyObjC can't `uv sync` on Linux) |
 | Version | `0.1.2` → `0.2.0` (rename is notable; project is pre-1.0 so a minor bump) |
 
 ## The one non-mechanical hazard: not every `apple-mcp` string is ours
@@ -75,18 +75,35 @@ Every file touched in Phase 1 is reviewed by hand against this rule — no unatt
 - Add `LICENSE` (MIT full text, © 2026 Andrei Lavrenov).
 - `uv sync` to regenerate `uv.lock` under the new project name.
 
-### Phase 3 — Release automation
-- New `.github/workflows/release.yml`:
-  - Trigger: `on: push: tags: ['v*']`.
-  - Permissions: `id-token: write` (OIDC), `contents: write` (create release).
-  - Runs on `ubuntu-latest` (wheel is pure Python — PyObjC is a runtime dep, not built here).
-  - Steps: checkout → `astral-sh/setup-uv` → `uv build` → publish to PyPI via OIDC Trusted
-    Publishing (`pypa/gh-action-pypi-publish` or `uv publish` with no token) → `gh release create`
-    with the matching CHANGELOG section as the release body.
-- One-time manual prerequisite (documented in the plan, not automatable from the repo): on PyPI,
-  register a **pending Trusted Publisher** for project `mac-mcp` — owner `elfensky`, repo `mac-mcp`,
-  workflow `release.yml`. Until this exists the first publish step will fail.
-- `ci.yml` is unchanged (still macOS, still lint-gated) other than any `apple_mcp` string in it.
+### Phase 3 — Release automation (mirror `../lintle/.github/workflows/publish.yml`)
+- New `.github/workflows/publish.yml`, structurally identical to lintle's, with two adaptations:
+  - **Runner `macos-latest`** (not lintle's `ubuntu-latest`) — the verify step runs `uv sync` +
+    `pytest`, and PyObjC/EventKit are macOS-only. The built wheel is still pure-Python.
+  - Project URLs / `environment.url` point at `mac-mcp`, not `lintle`.
+- Triggers (verbatim from lintle): `on: push: branches: [main]` **and** `workflow_dispatch` with a
+  `target` choice input (`testpypi` | `pypi`, default `testpypi`).
+- Job: `environment: { name: pypi, url: <pypi or testpypi project url by target> }`,
+  `permissions: { id-token: write }`. Steps: checkout → `astral-sh/setup-uv` → verify
+  (`uv sync && uv run pytest && uv run ruff check . && uv run ruff format --check .`) →
+  `uv build` → **Publish to TestPyPI** `if: github.event_name == 'push' || inputs.target == 'testpypi'`
+  via `uv publish --index testpypi --trusted-publishing always` → **Publish to PyPI**
+  `if: github.event_name == 'workflow_dispatch' && inputs.target == 'pypi'` via
+  `uv publish --trusted-publishing always`.
+- `pyproject.toml` gains lintle's `[[tool.uv.index]]` `testpypi` block (name `testpypi`, url
+  `https://test.pypi.org/simple/`, publish-url `https://test.pypi.org/legacy/`, `explicit = true`).
+- **Known tradeoff (accepted):** apple-mcp merges feature PRs straight to `main`, so unlike lintle
+  (release-only `main`), the push-triggered TestPyPI step **fails on any merge that doesn't bump the
+  version** (TestPyPI rejects a duplicate version) — a red X on ordinary merges. Mirroring lintle
+  verbatim per request; mitigation if it grates later is a `develop → main` flow or a
+  version-changed guard, **not** done now.
+- One-time manual prerequisites (documented in the plan, not automatable from the repo): register a
+  **pending Trusted Publisher** for `mac-mcp` on **both** TestPyPI and PyPI — owner `elfensky`, repo
+  `mac-mcp`, workflow `publish.yml`, environment `pypi`. Until each exists, that index's publish
+  step fails.
+- GitHub Releases: cut per tag with `gh release create v0.2.0 --notes-from-tag` (or notes from the
+  CHANGELOG section) as a **manual** step in Phase 5 — lintle's workflow doesn't automate releases,
+  so neither does this (no scope creep).
+- `ci.yml` is unchanged except any `apple_mcp`/`apple-mcp` string inside it.
 
 ### Phase 4 — GitHub repo rename + external refs
 - Rename the repo `elfensky/apple-mcp` → `elfensky/mac-mcp` (GitHub Settings or `gh repo rename`).
@@ -98,8 +115,13 @@ Every file touched in Phase 1 is reviewed by hand against this rule — no unatt
 - Bump version `0.1.2` → `0.2.0` in `pyproject.toml`.
 - Add a `CHANGELOG.md` `## [0.2.0]` entry documenting the rename (PyPI name, repo, binary, env var)
   and the first public PyPI publication.
-- Commit, `git tag v0.2.0`, push tag, watch `release.yml`, confirm `mac-mcp` appears on PyPI and the
-  GitHub Release is created. Smoke-test `uvx mac-mcp` (or `uvx --from . mac-mcp`).
+- Commit + push to `main` → the `publish.yml` push trigger auto-publishes to **TestPyPI**. Confirm
+  `mac-mcp 0.2.0` appears on test.pypi.org and smoke-test
+  `uvx --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ mac-mcp`.
+- Promote to **production PyPI**: run `publish.yml` via `workflow_dispatch` with `target=pypi`.
+  Confirm `mac-mcp 0.2.0` on pypi.org and smoke-test `uvx mac-mcp`.
+- Tag the release and cut the GitHub Release manually: `git tag v0.2.0 && git push --tags` then
+  `gh release create v0.2.0 --notes "…"` (notes from the `0.2.0` CHANGELOG section).
 
 ## Verification gate
 
