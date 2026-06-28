@@ -6,6 +6,31 @@ surface may still shift between minor versions.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-06-28
+
+Docs-only release — the shipped tool surface was unchanged; the narrative docs
+had drifted behind it.
+
+### Changed
+
+- **README** rewritten around the actual surface: the stale "Calendar + Reminders,
+  Mail next / v1 in progress" framing is replaced by tables covering the read/write
+  Calendar & Reminders tools, the read-only context adapters (Mail, Notes, Contacts,
+  Photos, Safari, Messages, Shortcuts), and the actions — with real args, query
+  selectors, the `RRULE` subset, and the `APPLE_MCP_READ_ONLY` guard.
+- **DESIGN.md** reconciled with shipped reality: the read adapters it had listed as
+  "dropped" / "YAGNI" / "maybe-never" (Notes, Messages, Contacts, Photos) are
+  documented as shipped; the layout block lists all nine adapters; Photos is noted as
+  AppleScript (not `osxphotos`).
+
+### Removed
+
+- **`docs/superpowers/`** — the executed v1 plan and its design spec. Both were spent
+  build-time scaffolding; their durable decisions live in DESIGN.md / CLAUDE.md, and
+  the spec had gone stale (it predated the CHANGELOG and the recurrence/Notes/Messages/
+  Contacts work). The living cross-repo contracts (`docs/projection-contract.md`,
+  `docs/parity-checklist.md`) are kept.
+
 ## [0.1.0] - 2026-06-27
 
 First tagged release.

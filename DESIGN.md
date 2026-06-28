@@ -12,7 +12,7 @@ native data-plane adapter, so clean module boundaries are load-bearing.
   carries an *"every note returned in full"* context-bloat bug. We don't resurrect it; we own a lean
   replacement.
 - **The apps don't share one access method:** Calendar/Reminders → EventKit (clean, no app-open);
-  Mail/Notes → AppleScript; Photos → `osxphotos`; **Journal → no API at all** (no AppleScript
+  Mail/Notes/Photos → AppleScript; Shortcuts → CLI; **Journal → no API at all** (no AppleScript
   dictionary, JournalingSuggestions is read-only/iOS-only, entries are E2E-encrypted). So the
   architecture absorbs heterogeneous backends behind a uniform module surface — and **Journal is out**.
 
@@ -48,30 +48,42 @@ apple_mcp/
   adapters/
     calendar.py    # EventKit / PyObjC
     reminders.py   # EventKit / PyObjC
-    mail.py        # AppleScript / osascript        (v1.5 — port the fork)
-    photos.py      # osxphotos (optional import)     (last / maybe-never — media = Immich)
+    mail.py        # AppleScript / osascript (read-only inbox search)
+    notes.py       # AppleScript / osascript (title search)
+    contacts.py    # AppleScript / osascript (search + create)
+    photos.py      # AppleScript / osascript (Photos search command)
+    safari.py      # AppleScript / osascript (list tabs + open url)
+    messages.py    # AppleScript / osascript (chat list only)
+    shortcuts.py   # `shortcuts` CLI (list + run)
 tests/
   test_*.py        # unit (Protocol fakes); integration behind @pytest.mark.integration
 ```
 
 ## Scope by phase
 
-### v1 — Calendar + Reminders, bidirectional
-- **Read** (EventKit): events / reminders at parity with `apple-events` → retire it.
-- **Write** (EventKit): create/update/complete reminder; create/update/delete event — return stable ids.
+### v1 — Calendar + Reminders, bidirectional *(shipped)*
+- **Read** (EventKit): events / reminders at parity with `apple-events` → retires it.
+- **Write** (EventKit): create/update/complete reminder; create/update/delete event — return stable
+  ids. Both support recurrence (RFC 5545 `RRULE` subset).
 - **Outbound projection** (a cockpit-side command): vault tasks/deadlines → Apple Reminders/Calendar,
   **idempotent** via a stable id written back into the task line (a new `[rem::]`/`[cal::]` field in
   the cockpit's `conventions.md`); completion reflects both ways.
 
-### v1.5 — Mail
-- Port the existing Apple Mail fork in as an adapter; retire the standalone server. Decide upstream
-  contribution vs absorption then.
+### Read-only context + actions *(shipped)*
+The pointers-not-payload surface turned out cheap to extend, so the "later / dropped" apps came in as
+thin read adapters plus a few actions — each still returning only pointers:
+- **Mail** (AppleScript): inbox subject search. Read-only — no body fetch, no send.
+- **Notes** (AppleScript): title search.
+- **Contacts** (AppleScript): name search → name/org/first phone+email; `create_contact` action.
+- **Photos** (AppleScript `search`): media search — no PhotoKit bundle needed.
+- **Safari** (AppleScript): list open tabs; `safari_open` action (http/https only).
+- **Messages** (AppleScript): conversation list only — content needs the private `chat.db`, sending
+  is regressed since macOS 11, so both are out.
+- **Shortcuts** (`shortcuts` CLI): list shortcuts; `run_shortcut` action — a gateway to any user
+  automation, no Automation prompt.
 
-### Later / dropped
-- **Apple Notes:** dropped (migrating to the vault). Optional one-shot exporter only.
-- **Apple Photos:** last / maybe-never — media lives in **Immich** (separate integration), not here.
-- **Apple Journal:** out — no write API exists.
-- **Messages / Contacts:** YAGNI until a concrete need appears.
+### Out — no viable path
+- **Apple Journal:** no write API and no AppleScript dictionary; entries are E2E-encrypted.
 
 ## Out of scope
 - A two-way conflict-resolution engine — v1 is outbound projection + id-mediated reconcile, not a
