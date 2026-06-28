@@ -16,7 +16,8 @@ which forces a distribution rename; the user chose to migrate **all** naming for
 | Code rename depth | **Full** — `apple_mcp/` → `mac_mcp/`, every import, the console script, the FastMCP server name, and the env var |
 | Env var | `APPLE_MCP_READ_ONLY` → `MAC_MCP_READ_ONLY`, **no** backward-compat alias (zero public users pre-release — YAGNI) |
 | License | MIT, © 2026 Andrei Lavrenov |
-| Publish mechanism | **Mirror `../lintle`**: push to `main` → auto TestPyPI; `workflow_dispatch` (target `pypi`) → production PyPI. Trusted Publishing (OIDC, no stored tokens). Job runs on `macos-latest` (PyObjC can't `uv sync` on Linux) |
+| Git flow | **Mirror `../lintle`**: `develop` = long-running trunk (full history); `main` = release-only, one `commit-tree` merge commit per release. Rename current `main` → `develop`; `main` re-created fresh at `v0.2.0` (no backfill — see below) |
+| Publish mechanism | **Mirror `../lintle`**: push to `main` → auto TestPyPI; `workflow_dispatch` (target `pypi`) → production PyPI. Trusted Publishing (OIDC, no stored tokens). Job runs on `macos-latest` (PyObjC can't `uv sync` on Linux). With release-only `main`, a push to `main` is a per-release event — **no per-merge spam** |
 | Version | `0.1.2` → `0.2.0` (rename is notable; project is pre-1.0 so a minor bump) |
 
 ## The one non-mechanical hazard: not every `apple-mcp` string is ours
@@ -49,7 +50,32 @@ Every file touched in Phase 1 is reviewed by hand against this rule — no unatt
   the `_read_only()` env lookup; `pyproject.toml` `[project.scripts]` and
   `[tool.hatch.build.targets.wheel]`.
 
+## Git flow: `develop` trunk, `main` releases (mirror lintle)
+
+Adopt lintle's model so the release-only `main` makes the push→TestPyPI trigger faithful:
+
+- **`develop`** — long-running trunk, full history. Features branch off `develop` and PR back
+  (rebase-and-merge, keeping `develop` linear, per lintle's current contract). Becomes the GitHub
+  default branch.
+- **`main`** — release-only. Each release is a single `commit-tree` merge commit whose tree is
+  `develop`'s release-point tree (byte-identical to what's published) and whose parents wire it into
+  both a clean first-parent release timeline and a "branched-from" edge back to `develop`. Never
+  committed to directly. `git log --first-parent main` = the release list.
+
+**Deliberate simplification vs lintle:** lintle backfilled `v0.1.1`/`v0.1.2` onto the new `main`
+with byte-equal trees to preserve **PyPI** provenance. apple-mcp has **no PyPI artifacts** for
+`v0.1.0`–`v0.1.2` (never published), so there is nothing to preserve byte-equality *to*. The
+existing tags stay on their commits (reachable from `develop`); the new `main` starts fresh at the
+first real release, **`v0.2.0`**. No tear-down of old tags/releases, no `commit-tree` backfill of
+history — just bootstrap `main` at the `0.2.0` release point.
+
 ## Work breakdown
+
+### Phase 0 — Flip the trunk to `develop` (before any rebrand work)
+- `git branch -m main develop`; push `develop`; `gh repo edit --default-branch develop`.
+- Delete the old remote `main` (it is re-created as release-only in Phase 5). Old tags and the
+  `v0.1.0`/`v0.1.2` GitHub releases are bound to **tags**, not the branch, so they survive.
+- No branch protection exists (verified), so this is force-safe; no open PRs to retarget (verified).
 
 ### Phase 1 — Code rename (mechanical, hand-verified)
 - `git mv apple_mcp mac_mcp` (preserves history).
@@ -91,11 +117,10 @@ Every file touched in Phase 1 is reviewed by hand against this rule — no unatt
   `uv publish --trusted-publishing always`.
 - `pyproject.toml` gains lintle's `[[tool.uv.index]]` `testpypi` block (name `testpypi`, url
   `https://test.pypi.org/simple/`, publish-url `https://test.pypi.org/legacy/`, `explicit = true`).
-- **Known tradeoff (accepted):** apple-mcp merges feature PRs straight to `main`, so unlike lintle
-  (release-only `main`), the push-triggered TestPyPI step **fails on any merge that doesn't bump the
-  version** (TestPyPI rejects a duplicate version) — a red X on ordinary merges. Mirroring lintle
-  verbatim per request; mitigation if it grates later is a `develop → main` flow or a
-  version-changed guard, **not** done now.
+- **No per-merge spam (resolved by the git-flow change):** because `main` is now release-only
+  (Phase 0), a push to `main` only happens when a release is cut — so the push-triggered TestPyPI
+  publish is a per-release event, exactly as in lintle. Day-to-day feature merges land on `develop`
+  and never touch the publish workflow.
 - One-time manual prerequisites (documented in the plan, not automatable from the repo): register a
   **pending Trusted Publisher** for `mac-mcp` on **both** TestPyPI and PyPI — owner `elfensky`, repo
   `mac-mcp`, workflow `publish.yml`, environment `pypi`. Until each exists, that index's publish
@@ -103,7 +128,10 @@ Every file touched in Phase 1 is reviewed by hand against this rule — no unatt
 - GitHub Releases: cut per tag with `gh release create v0.2.0 --notes-from-tag` (or notes from the
   CHANGELOG section) as a **manual** step in Phase 5 — lintle's workflow doesn't automate releases,
   so neither does this (no scope creep).
-- `ci.yml` is unchanged except any `apple_mcp`/`apple-mcp` string inside it.
+- `ci.yml`: triggers become `branches: [develop, main]`; otherwise unchanged except any
+  `apple_mcp`/`apple-mcp` string inside it.
+- `CONTRIBUTING.md` gains a concise "Branching & releases" section describing the `develop`/`main`
+  contract (condensed from lintle's).
 
 ### Phase 4 — GitHub repo rename + external refs
 - Rename the repo `elfensky/apple-mcp` → `elfensky/mac-mcp` (GitHub Settings or `gh repo rename`).
@@ -111,17 +139,19 @@ Every file touched in Phase 1 is reviewed by hand against this rule — no unatt
 - Update the `CLAUDE.md` tracker reference (`elfensky/apple-mcp` → `elfensky/mac-mcp`). The
   life-cockpit vault tracker entry is updated **out-of-repo** by the user; note it, don't edit here.
 
-### Phase 5 — Cut the release
-- Bump version `0.1.2` → `0.2.0` in `pyproject.toml`.
-- Add a `CHANGELOG.md` `## [0.2.0]` entry documenting the rename (PyPI name, repo, binary, env var)
-  and the first public PyPI publication.
-- Commit + push to `main` → the `publish.yml` push trigger auto-publishes to **TestPyPI**. Confirm
-  `mac-mcp 0.2.0` appears on test.pypi.org and smoke-test
-  `uvx --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ mac-mcp`.
-- Promote to **production PyPI**: run `publish.yml` via `workflow_dispatch` with `target=pypi`.
-  Confirm `mac-mcp 0.2.0` on pypi.org and smoke-test `uvx mac-mcp`.
-- Tag the release and cut the GitHub Release manually: `git tag v0.2.0 && git push --tags` then
-  `gh release create v0.2.0 --notes "…"` (notes from the `0.2.0` CHANGELOG section).
+### Phase 5 — Cut the release (bootstrap release-only `main`)
+- Rebrand work (version `0.2.0` in `pyproject.toml`, `## [0.2.0]` CHANGELOG entry) lands on
+  `develop` via PR.
+- Bootstrap `main` from `develop`'s tip with a `commit-tree` merge commit (mirrors lintle §7.3,
+  minus the historical backfill): tree = `develop^{tree}`; parents = [repo root `e6582e2`,
+  `develop` tip] — giving a clean `git log --first-parent main` and a graph edge back to `develop`.
+  Assert the new commit's tree equals `develop`'s tree before pushing.
+- `git push origin main` → the `publish.yml` push trigger auto-publishes to **TestPyPI**. Smoke-test
+  from test.pypi.org.
+- Promote to **production PyPI**: run `publish.yml` via `workflow_dispatch` with `target=pypi`;
+  smoke-test `uvx mac-mcp`.
+- Tag `v0.2.0` **on the `main` release commit** (`git tag -a`), push the tag, and cut the GitHub
+  Release (`gh release create v0.2.0`, notes from the `0.2.0` CHANGELOG section).
 
 ## Verification gate
 
