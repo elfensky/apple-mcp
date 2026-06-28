@@ -42,7 +42,10 @@ _shortcuts = ShortcutsAdapter()
 
 
 def _emit(p: Pointer) -> dict[str, str]:
-    return {"id": p.id, "summary": p.summary, "deeplink": p.deeplink}
+    d = {"id": p.id, "summary": p.summary, "deeplink": p.deeplink}
+    if p.folder is not None:
+        d["folder"] = p.folder
+    return d
 
 
 def _read_only() -> bool:
@@ -102,6 +105,21 @@ def mail(subject: str) -> list[dict]:
 def notes(title: str) -> list[dict]:
     """Search Notes by title substring. Returns pointers (id + title)."""
     return [_emit(p) for p in _notes.get_pointers(title)]
+
+
+@mcp.tool()
+def notes_all() -> list[dict]:
+    """List every note as pointers (id + "Account / Folder" + title), excluding
+    Recently Deleted. No cap; very large libraries can hit the osascript timeout
+    (all-or-nothing)."""
+    return [_emit(p) for p in _notes.get_all()]
+
+
+@mcp.tool()
+def note_bodies(ids: list[str]) -> list[dict]:
+    """Hydrate plaintext bodies for up to 50 note ids (opt-in; search stays
+    pointer-only). Returns [{"id", "body"}]; unknown ids are silently skipped."""
+    return _notes.get_bodies(ids)
 
 
 @mcp.tool()
@@ -267,6 +285,14 @@ def update_event(
 def delete_event(id: str) -> dict:
     """Delete a calendar event by id."""
     _calendar.delete_event(id)
+    return {"deleted": id}
+
+
+@_write_tool
+def delete_note(id: str, expect_title: str | None = None) -> dict:
+    """Delete a note by id → Recently Deleted (recoverable ~30 days). Destructive.
+    Pass expect_title to verify the target before deleting (content-verify first)."""
+    _notes.delete(id, expect_title)
     return {"deleted": id}
 
 

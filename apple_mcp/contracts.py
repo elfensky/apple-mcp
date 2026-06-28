@@ -35,6 +35,7 @@ class Pointer:
     id: str
     summary: str
     deeplink: str
+    folder: str | None = None  # notes_all only: "Account / Folder"; None elsewhere
 
 
 @runtime_checkable

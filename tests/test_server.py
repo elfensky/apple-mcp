@@ -34,6 +34,12 @@ class _FakeSource:
         self.enumerated += 1
         return [Pointer(id="C-1", summary="Work", deeplink="")]
 
+    def get_all(self) -> list[Pointer]:
+        self.enumerated += 1
+        return [
+            Pointer(id="N-1", summary="Milk", deeplink="", folder="iCloud / Groceries")
+        ]
+
 
 def test_server_constructs():
     assert srv.mcp is not None
@@ -77,6 +83,21 @@ def test_notes_tool_dispatches(monkeypatch):
     out = srv.notes("groceries")
     assert fake.queries == ["groceries"]
     assert out == [{"id": "P-1", "summary": "s", "deeplink": "d"}]
+
+
+def test_notes_all_dispatches(monkeypatch):
+    fake = _FakeSource()
+    monkeypatch.setattr(srv, "_notes", fake)
+    out = srv.notes_all()
+    assert fake.enumerated == 1
+    assert out == [
+        {
+            "id": "N-1",
+            "summary": "Milk",
+            "deeplink": "",
+            "folder": "iCloud / Groceries",
+        }
+    ]
 
 
 def test_safari_tabs_dispatches(monkeypatch):
@@ -373,3 +394,48 @@ def test_read_only_falsy(monkeypatch, val):
 def test_read_only_unset_is_false(monkeypatch):
     monkeypatch.delenv("APPLE_MCP_READ_ONLY", raising=False)
     assert srv._read_only() is False
+
+
+def test_emit_omits_folder_when_none():
+    out = srv._emit(Pointer(id="P-1", summary="s", deeplink="d"))
+    assert out == {"id": "P-1", "summary": "s", "deeplink": "d"}
+
+
+def test_emit_includes_folder_when_set():
+    out = srv._emit(
+        Pointer(id="P-1", summary="s", deeplink="d", folder="iCloud / Notes")
+    )
+    assert out == {
+        "id": "P-1",
+        "summary": "s",
+        "deeplink": "d",
+        "folder": "iCloud / Notes",
+    }
+
+
+def test_note_bodies_dispatches(monkeypatch):
+    class _FakeNotes:
+        def get_bodies(self, ids):
+            self.got = ids
+            return [{"id": ids[0], "body": "B"}]
+
+    fake = _FakeNotes()
+    monkeypatch.setattr(srv, "_notes", fake)
+    out = srv.note_bodies(["N-1"])
+    assert fake.got == ["N-1"]
+    assert out == [{"id": "N-1", "body": "B"}]
+
+
+def test_delete_note_dispatches(monkeypatch):
+    class _FakeNotes:
+        def __init__(self):
+            self.calls = []
+
+        def delete(self, ident, expect_title=None):
+            self.calls.append((ident, expect_title))
+
+    fake = _FakeNotes()
+    monkeypatch.setattr(srv, "_notes", fake)
+    out = srv.delete_note("N-1", expect_title="Milk")
+    assert fake.calls == [("N-1", "Milk")]
+    assert out == {"deleted": "N-1"}

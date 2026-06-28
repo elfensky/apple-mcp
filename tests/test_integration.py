@@ -497,3 +497,58 @@ def test_reminder_create_recurring(created):
         lambda: store().calendarItemWithIdentifier_(p.id).recurrenceRules()
     )
     assert rules and len(rules) == 1
+
+
+@pytest.mark.integration
+def test_notes_all_and_bodies_and_delete_roundtrip():
+    """Create a note whose body contains newlines, find it via get_all, hydrate its
+    body (verifying the embedded newlines survive the control-char framing), then
+    delete it with a matching expect_title."""
+    from apple_mcp.adapters.notes import NotesAdapter
+    from apple_mcp.runtime import run_osascript
+
+    notes = NotesAdapter()
+    title = "apple-mcp-itest-note"
+    # Notes stores `body` as HTML, so line breaks must be <br> to yield real newlines
+    # in plaintext. The newlines are the point: a newline-delimited record format would
+    # split on them — the \x1f/\x1e framing must not. (Tabs aren't preserved by Notes
+    # plaintext at all, so they're not part of this guard.)
+    body_html = "line one<br>line two<br>line three"
+
+    # create a note via osascript (test-only helper; not part of the shipped surface)
+    create = (
+        "on run argv\n"
+        '  tell application "Notes"\n'
+        '    make new note at folder "Notes" of account 1 '
+        "with properties {name:(item 1 of argv), body:(item 2 of argv)}\n"
+        "  end tell\n"
+        "end run"
+    )
+    run_osascript(create, title, body_html)
+
+    try:
+        # get_all finds it, with an account-qualified folder
+        all_ptrs = notes.get_all()
+        mine = [p for p in all_ptrs if p.summary == title]
+        assert mine, "created note not returned by get_all"
+        ptr = mine[0]
+        assert ptr.folder and " / " in ptr.folder  # "Account / Folder"
+
+        # body hydrates with embedded newlines intact (framing didn't split on them)
+        bodies = notes.get_bodies([ptr.id])
+        assert len(bodies) == 1 and bodies[0]["id"] == ptr.id
+        assert "line one\nline two\nline three" in bodies[0]["body"]
+
+        # mismatched expect_title refuses to delete
+        with pytest.raises(RuntimeError):
+            notes.delete(ptr.id, expect_title="wrong title")
+        assert any(p.summary == title for p in notes.get_all())
+
+        # matching expect_title deletes (moves to Recently Deleted)
+        notes.delete(ptr.id, expect_title=title)
+        assert not any(p.summary == title for p in notes.get_all())
+    finally:
+        # best-effort cleanup if an assertion left the note behind
+        for p in notes.get_all():
+            if p.summary == title:
+                notes.delete(p.id)
