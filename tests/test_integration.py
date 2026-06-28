@@ -501,14 +501,19 @@ def test_reminder_create_recurring(created):
 
 @pytest.mark.integration
 def test_notes_all_and_bodies_and_delete_roundtrip():
-    """Create a note with newlines+tabs, find it via get_all, hydrate its body
-    byte-for-byte, then delete it with a matching expect_title."""
+    """Create a note whose body contains newlines, find it via get_all, hydrate its
+    body (verifying the embedded newlines survive the control-char framing), then
+    delete it with a matching expect_title."""
     from apple_mcp.adapters.notes import NotesAdapter
     from apple_mcp.runtime import run_osascript
 
     notes = NotesAdapter()
     title = "apple-mcp-itest-note"
-    body_marker = "line one\nline two\tindented\nline three"
+    # Notes stores `body` as HTML, so line breaks must be <br> to yield real newlines
+    # in plaintext. The newlines are the point: a newline-delimited record format would
+    # split on them — the \x1f/\x1e framing must not. (Tabs aren't preserved by Notes
+    # plaintext at all, so they're not part of this guard.)
+    body_html = "line one<br>line two<br>line three"
 
     # create a note via osascript (test-only helper; not part of the shipped surface)
     create = (
@@ -519,7 +524,7 @@ def test_notes_all_and_bodies_and_delete_roundtrip():
         "  end tell\n"
         "end run"
     )
-    run_osascript(create, title, body_marker)
+    run_osascript(create, title, body_html)
 
     try:
         # get_all finds it, with an account-qualified folder
@@ -529,11 +534,10 @@ def test_notes_all_and_bodies_and_delete_roundtrip():
         ptr = mine[0]
         assert ptr.folder and " / " in ptr.folder  # "Account / Folder"
 
-        # body hydrates byte-for-byte (newlines + tabs survive the control-char framing)
+        # body hydrates with embedded newlines intact (framing didn't split on them)
         bodies = notes.get_bodies([ptr.id])
         assert len(bodies) == 1 and bodies[0]["id"] == ptr.id
-        assert "line two\tindented" in bodies[0]["body"]
-        assert "line one\nline two" in bodies[0]["body"]
+        assert "line one\nline two\nline three" in bodies[0]["body"]
 
         # mismatched expect_title refuses to delete
         with pytest.raises(RuntimeError):

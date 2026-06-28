@@ -45,8 +45,8 @@ _LIST_ALL = """on run argv
           repeat with i from 1 to (count of theIds)
             set nId to item i of theIds
             set nName to item i of theNames
-            set line to (nId & tab & folder_label & tab & nName)
-            set end of theLines to line
+            set noteLine to (nId & tab & folder_label & tab & nName)
+            set end of theLines to noteLine
           end repeat
         end if
       end repeat
@@ -69,8 +69,8 @@ _BODIES = """on run argv
   tell application "Notes"
     repeat with theId in argv
       try
-        set body to plaintext of note id theId
-        set out to out & theId & us & body & rs
+        set noteBody to plaintext of note id theId
+        set out to out & theId & us & noteBody & rs
       end try
     end repeat
   end tell
