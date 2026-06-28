@@ -22,12 +22,19 @@ from apple_mcp.contracts import Pointer
 
 
 def _fake_run(monkeypatch, *, returncode=0, stdout="", stderr=""):
-    """Swap shortcuts.subprocess.run for a fake; return a dict capturing the call."""
+    """Swap shortcuts.subprocess.run for a fake; return a dict capturing the call.
+
+    Mirrors ``shortcuts run --output-path <file>``: the fake writes ``stdout`` to that
+    path on success, so the adapter reads the result back like the CLI delivers it.
+    """
     seen: dict = {}
 
     def fake(cmd, **kw):
         seen["cmd"], seen["kw"] = cmd, kw
-        return subprocess.CompletedProcess(cmd, returncode, stdout, stderr)
+        if returncode == 0 and "--output-path" in cmd:
+            with open(cmd[cmd.index("--output-path") + 1], "w", encoding="utf-8") as f:
+                f.write(stdout)
+        return subprocess.CompletedProcess(cmd, returncode, "", stderr)
 
     monkeypatch.setattr("apple_mcp.adapters.shortcuts.subprocess.run", fake)
     return seen
@@ -82,6 +89,28 @@ def test_run_shortcut_pipes_input(monkeypatch):
     seen = _fake_run(monkeypatch, stdout="done")
     ShortcutsAdapter().run_shortcut("Append Note", "hello")
     assert "--input-path" in seen["cmd"] and seen["kw"].get("input") == "hello"
+
+
+def test_run_shortcut_reads_output_bounded(monkeypatch):
+    # finding-8 fix: a huge result is read only up to a snippet, never fully buffered.
+    _fake_run(monkeypatch, stdout="x" * (MAX_OUTPUT * 100))
+    p = ShortcutsAdapter().run_shortcut("Dump")
+    assert p.summary.endswith("…")
+    assert len(p.summary) <= len("ran Dump → ") + MAX_OUTPUT + 1
+
+
+def test_run_shortcut_tolerates_directory_output(monkeypatch):
+    # a shortcut whose --output-path lands a directory (not a file) must not crash the
+    # worker: open() raises IsADirectoryError, which maps to "no usable result", same as
+    # a missing file.
+    import os
+
+    def fake(cmd, **kw):
+        os.mkdir(cmd[cmd.index("--output-path") + 1])
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    monkeypatch.setattr("apple_mcp.adapters.shortcuts.subprocess.run", fake)
+    assert ShortcutsAdapter().run_shortcut("Folder").summary == "ran Folder"
 
 
 def test_run_shortcut_raises_on_nonzero(monkeypatch):

@@ -2,8 +2,30 @@
 
 from __future__ import annotations
 
-from apple_mcp.adapters.contacts import _deeplink, _parse, _summary
+from apple_mcp.adapters.contacts import (
+    _FIELD,
+    _RECORD,
+    MAX_CONTACTS,
+    ContactsAdapter,
+    _deeplink,
+    _parse,
+    _summary,
+)
 from apple_mcp.contracts import Pointer
+
+
+def test_get_pointers_passes_cap_into_applescript(monkeypatch):
+    # the cap must reach the AppleScript (so it stops fetching after MAX_CONTACTS) —
+    # not just trim in Python after the fact. Assert it's forwarded as an argv arg.
+    seen: dict = {}
+
+    def fake(script, *args, **kw):
+        seen["args"] = args
+        return ""  # no matches; we only care about the call shape
+
+    monkeypatch.setattr("apple_mcp.adapters.contacts.run_osascript", fake)
+    ContactsAdapter().get_pointers("jane")
+    assert seen["args"] == ("jane", str(MAX_CONTACTS))
 
 
 def test_summary_name_and_org():
@@ -39,8 +61,12 @@ def test_deeplink_scheme():
     assert _deeplink("X:ABPerson") == "addressbook://X:ABPerson"
 
 
-def test_parse_tab_lines():
-    raw = "C-1\tJane Doe\tAcme\nC-2\tBob\t\n"
+def _rec(*fields: str) -> str:
+    return _FIELD.join(fields) + _RECORD
+
+
+def test_parse_records():
+    raw = _rec("C-1", "Jane Doe", "Acme") + _rec("C-2", "Bob", "")
     ptrs = _parse(raw)
     assert len(ptrs) == 2
     assert isinstance(ptrs[0], Pointer)
@@ -49,18 +75,28 @@ def test_parse_tab_lines():
     assert ptrs[1].id == "C-2" and ptrs[1].summary == "Bob"
 
 
-def test_parse_five_field_line_with_phone_email():
-    raw = "C-1\tJane Doe\tAcme\t+3212345\tjane@acme.com\n"
+def test_parse_five_field_record_with_phone_email():
+    raw = _rec("C-1", "Jane Doe", "Acme", "+3212345", "jane@acme.com")
     ptrs = _parse(raw)
     assert ptrs[0].id == "C-1"
     assert ptrs[0].summary == "Jane Doe — Acme · +3212345 · jane@acme.com"
 
 
-def test_parse_three_field_line_still_works():
+def test_parse_three_field_record_still_works():
     # back-compat: a person with no phone/email yields the old name—org summary
-    ptrs = _parse("C-2\tBob\tAcme\n")
+    ptrs = _parse(_rec("C-2", "Bob", "Acme"))
     assert ptrs[0].summary == "Bob — Acme"
 
 
-def test_parse_skips_blank_lines():
-    assert _parse("\n   \n") == []
+def test_parse_skips_blank_records():
+    assert _parse(_RECORD + "   " + _RECORD) == []
+
+
+def test_parse_tolerates_tab_and_newline_in_field():
+    # finding-5 fix: a tab/newline inside a field can no longer split or spoof a pointer
+    # — fields/records are delimited by control chars, not tab/newline.
+    raw = _rec("C-1", "Jane\tDoe", "Ev\nil Corp")
+    ptrs = _parse(raw)
+    assert len(ptrs) == 1
+    assert ptrs[0].id == "C-1"
+    assert "Jane\tDoe" in ptrs[0].summary  # the tab is data, not a delimiter

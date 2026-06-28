@@ -88,11 +88,30 @@ def _resolve_calendar(s, name: str | None):
     raise ValueError(f"no calendar named {name!r}")
 
 
+def _all_day_bounds(start: datetime, end: datetime) -> tuple[datetime, datetime]:
+    """Snap an all-day event's bounds to date-only midnight so a stored time can't drift
+    on CalDAV roundtrips. EventKit's all-day end date is INCLUSIVE (verified on-device:
+    the event covers start's day through end's day), so a same-day event keeps
+    ``end == start`` as one day; only a reversed span clamps back to a single day.
+
+    An all-day event is a calendar date, not an instant — so tzinfo is dropped too:
+    that keeps date-only math well-defined and stops a mixed naive/aware (start, end)
+    pair from the tool boundary raising on the comparison below."""
+    floor = {"hour": 0, "minute": 0, "second": 0, "microsecond": 0, "tzinfo": None}
+    s, e = start.replace(**floor), end.replace(**floor)
+    if e < s:  # reversed input only: clamp to a single day (end inclusive == start)
+        e = s
+    return s, e
+
+
 def _apply_event(s, e, data: CalendarEventData) -> None:
     e.setTitle_(data.title)
     e.setAllDay_(data.all_day)
-    e.setStartDate_(to_nsdate(data.start))
-    e.setEndDate_(to_nsdate(data.end))
+    start, end = data.start, data.end
+    if data.all_day:  # date-only bounds — EventKit/CalDAV must not see a stray time
+        start, end = _all_day_bounds(start, end)
+    e.setStartDate_(to_nsdate(start))
+    e.setEndDate_(to_nsdate(end))
     e.setLocation_(data.location)  # full-replace: None clears
     e.setNotes_(data.notes)  # full-replace: None clears
     # Recurrence is the exception to full-replace: only SET it when provided. Clearing a
