@@ -16,11 +16,20 @@ from ..runtime import run_osascript
 
 MAX_CONTACTS = 50  # cap a broad name match
 
-# Each matching person -> "id<TAB>name<TAB>org<TAB>phone<TAB>email" line. Unset fields
-# (`missing value` / no phones / no emails) normalize to "". Phone/email are the first
-# of each — a citable handle to *reach* the person, not the full card.
+# Field/record delimiters for the osascript payload: control chars (never present in
+# real contact data) instead of tab/newline, so a tab or newline *inside* a field can't
+# split or spoof a row. _parse splits on these; the AppleScript emits them via
+# `character id`.
+_FIELD = "\x1f"  # ASCII Unit Separator — between fields
+_RECORD = "\x1e"  # ASCII Record Separator — between people
+
+# Each matching person -> "id|name|org|phone|email" (US-delimited, RS-terminated). Unset
+# fields (`missing value` / no phones / no emails) normalize to "". Phone/email are the
+# first of each — a citable handle to *reach* the person, not the full card.
 _SEARCH = """on run argv
   set q to item 1 of argv
+  set uSep to character id 31
+  set rSep to character id 30
   set out to ""
   tell application "Contacts"
     repeat with p in (people whose name contains q)
@@ -30,8 +39,8 @@ _SEARCH = """on run argv
       if (count of phones of p) > 0 then set thePhone to value of item 1 of phones of p
       set theEmail to ""
       if (count of emails of p) > 0 then set theEmail to value of item 1 of emails of p
-      set out to out & (id of p) & tab & (name of p) & tab & theOrg
-      set out to out & tab & thePhone & tab & theEmail & linefeed
+      set out to out & (id of p) & uSep & (name of p) & uSep & theOrg
+      set out to out & uSep & thePhone & uSep & theEmail & rSep
     end repeat
   end tell
   return out
@@ -67,10 +76,10 @@ def _deeplink(ident: str) -> str:
 
 def _parse(raw: str) -> list[Pointer]:
     out = []
-    for line in raw.splitlines():
-        if not line.strip():
+    for rec in raw.split(_RECORD):
+        if not rec.strip():
             continue
-        parts = line.split("\t")
+        parts = rec.split(_FIELD)
         ident = parts[0]
         name = parts[1] if len(parts) > 1 else ""
         org = parts[2] if len(parts) > 2 else ""

@@ -6,6 +6,16 @@ surface may still shift between minor versions.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Contacts read** no longer mis-parses a contact whose name/org/phone/email contains a
+  tab or newline — the osascript payload is delimited by control chars (US/RS), so an
+  in-field tab/newline can't split a row or spoof a pointer.
+- **`run_shortcut`** writes its result to a temp file and reads back only a bounded
+  prefix, so a shortcut that returns a huge blob can't balloon the worker's memory.
+- **All-day events** store date-only (midnight) bounds, so a stray time on an
+  `all_day=True` create/update can't drift on CalDAV roundtrips.
+
 ## [0.1.1] - 2026-06-28
 
 Docs-only release — the shipped tool surface was unchanged; the narrative docs

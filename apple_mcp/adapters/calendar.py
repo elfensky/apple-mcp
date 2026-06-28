@@ -88,11 +88,24 @@ def _resolve_calendar(s, name: str | None):
     raise ValueError(f"no calendar named {name!r}")
 
 
+def _all_day_bounds(start: datetime, end: datetime) -> tuple[datetime, datetime]:
+    """Snap an all-day event's bounds to date-only midnight so a stored time can't drift
+    on CalDAV roundtrips. A collapsed (<= zero) span lifts to a single full day."""
+    floor = {"hour": 0, "minute": 0, "second": 0, "microsecond": 0}
+    s, e = start.replace(**floor), end.replace(**floor)
+    if e <= s:
+        e = s + timedelta(days=1)
+    return s, e
+
+
 def _apply_event(s, e, data: CalendarEventData) -> None:
     e.setTitle_(data.title)
     e.setAllDay_(data.all_day)
-    e.setStartDate_(to_nsdate(data.start))
-    e.setEndDate_(to_nsdate(data.end))
+    start, end = data.start, data.end
+    if data.all_day:  # date-only bounds — EventKit/CalDAV must not see a stray time
+        start, end = _all_day_bounds(start, end)
+    e.setStartDate_(to_nsdate(start))
+    e.setEndDate_(to_nsdate(end))
     e.setLocation_(data.location)  # full-replace: None clears
     e.setNotes_(data.notes)  # full-replace: None clears
     # Recurrence is the exception to full-replace: only SET it when provided. Clearing a

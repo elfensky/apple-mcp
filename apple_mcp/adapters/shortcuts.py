@@ -8,7 +8,9 @@ gateway to every automation the user owns.
 
 from __future__ import annotations
 
+import os
 import subprocess
+import tempfile
 
 from ..contracts import Pointer
 
@@ -53,27 +55,36 @@ class ShortcutsAdapter:
     def run_shortcut(self, name: str, input_text: str | None = None) -> Pointer:
         """Run a shortcut by exact name; optional text ``input_text`` piped via stdin.
 
-        ``--output-path -`` captures any result on stdout (best-effort; some shortcuts
-        return nothing). The Pointer cites the run + a truncated snippet, never a full
-        payload.
+        The result is written to a temp file (``--output-path``) and only a bounded
+        prefix is read back, so a shortcut returning a huge blob can't balloon the
+        worker's memory (best-effort; some shortcuts return nothing). The Pointer cites
+        the run + a truncated snippet, never a full payload.
         """
         name = name.strip()
         if not name:
             raise ValueError("run_shortcut needs a shortcut name (got an empty name)")
-        cmd = ["shortcuts", "run", name, "--output-path", "-"]
-        if input_text is not None:
-            cmd += ["--input-path", "-"]
-        # errors="replace": a shortcut may return non-text (an image/file) on stdout via
-        # --output-path -; a strict UTF-8 decode would crash the worker. Degrade to a
-        # lossy snippet instead — it's truncated to MAX_OUTPUT anyway.
-        proc = subprocess.run(
-            cmd,
-            input=input_text,
-            capture_output=True,
-            text=True,
-            errors="replace",
-            timeout=_RUN_TIMEOUT,
-        )
-        if proc.returncode != 0:
-            raise RuntimeError(f"shortcuts run {name!r} failed: {proc.stderr.strip()}")
-        return _run_pointer(name, proc.stdout)
+        with tempfile.TemporaryDirectory(prefix="apple-mcp-shortcut-") as tmp:
+            out_path = os.path.join(tmp, "out")
+            cmd = ["shortcuts", "run", name, "--output-path", out_path]
+            if input_text is not None:
+                cmd += ["--input-path", "-"]
+            proc = subprocess.run(
+                cmd,
+                input=input_text,
+                capture_output=True,
+                text=True,
+                errors="replace",
+                timeout=_RUN_TIMEOUT,
+            )
+            if proc.returncode != 0:
+                raise RuntimeError(
+                    f"shortcuts run {name!r} failed: {proc.stderr.strip()}"
+                )
+            try:
+                # errors="replace": a non-text result (image/file) must not crash the
+                # decode; read only a snippet, never the whole payload.
+                with open(out_path, encoding="utf-8", errors="replace") as f:
+                    output = f.read(MAX_OUTPUT + 1)
+            except FileNotFoundError:
+                output = ""  # the shortcut produced no result file
+        return _run_pointer(name, output)

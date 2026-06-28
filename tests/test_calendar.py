@@ -10,6 +10,7 @@ import Foundation as F
 import pytest
 
 from apple_mcp.adapters.calendar import (
+    _all_day_bounds,
     _event_pointer,
     _event_summary,
     _range,
@@ -64,6 +65,19 @@ def test_range_today_is_one_day():
 def test_range_explicit_date():
     start, end = _range("2026-12-25")
     assert start == datetime(2026, 12, 25) and (end - start).days == 1
+
+
+def test_all_day_bounds_snaps_same_day_to_full_day():
+    # a timed same-day range with all_day → date-only bounds spanning one full day, so a
+    # stored time can't drift on CalDAV roundtrips.
+    s, e = _all_day_bounds(datetime(2026, 7, 1, 9, 30), datetime(2026, 7, 1, 10, 45))
+    assert s == datetime(2026, 7, 1)
+    assert e == datetime(2026, 7, 2)  # collapsed zero span lifts to a single full day
+
+
+def test_all_day_bounds_preserves_multiday_span():
+    s, e = _all_day_bounds(datetime(2026, 7, 1, 9, 0), datetime(2026, 7, 3, 10, 0))
+    assert s == datetime(2026, 7, 1) and e == datetime(2026, 7, 3)
 
 
 def _fake_store(cal_names, default="Home"):
