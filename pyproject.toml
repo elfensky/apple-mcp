@@ -1,9 +1,32 @@
 [project]
-name = "apple-mcp"
-version = "0.1.2"
+name = "mac-mcp"
+version = "0.2.0"
 description = "One consolidated MCP server for native macOS apps (Calendar, Reminders, Mail, ...)."
 readme = "README.md"
 requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Andrei Lavrenov", email = "andrei@lav.ren" }]
+keywords = [
+    "mcp",
+    "model-context-protocol",
+    "macos",
+    "apple",
+    "eventkit",
+    "calendar",
+    "reminders",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: MacOS X",
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Utilities",
+]
 dependencies = [
     "fastmcp>=2.0",
     "pyobjc-framework-EventKit>=10.0",    # Calendar + Reminders (v1)
@@ -46,3 +69,11 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 testpaths = ["tests"]
 markers = ["integration: real macOS / EventKit / TCC — run manually, never in CI"]
 addopts = "-m 'not integration'"
+
+# TestPyPI as a named publish target. `explicit = true` keeps it out of normal
+# dependency resolution — it is only ever used via `uv publish --index testpypi`.
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple/"
+publish-url = "https://test.pypi.org/legacy/"
+explicit = true
