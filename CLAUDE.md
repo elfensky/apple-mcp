@@ -26,7 +26,7 @@ uv run pytest                   # unit tests — mock at the adapter boundary (P
 uv run pytest -m integration    # real macOS / EventKit / TCC — run manually, NEVER in CI
 uv run ruff check .             # lint
 uv run ruff format .            # format
-uv run mac-mcp                # run the server (stdio)
+uv run mac-mcp            # run the server (stdio)
 ```
 
 **Code style.** `ruff` for lint + format (config in `pyproject.toml`): line-length 88, rules

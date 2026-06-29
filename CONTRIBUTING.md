@@ -13,7 +13,7 @@ uv run pytest -m integration  # real EventKit / TCC — this Mac only, grant acc
 
 ## Run the server
 ```sh
-uv run mac-mcp              # stdio transport
+uv run mac-mcp          # stdio transport
 ```
 
 ## Lint & format

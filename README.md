@@ -69,7 +69,7 @@ uv run pytest                   # unit tests (mock at the adapter boundary)
 uv run pytest -m integration    # real macOS / EventKit / TCC — run manually, never in CI
 uv run ruff check .             # lint (config in pyproject.toml)
 uv run ruff format .            # format
-uv run mac-mcp                # run the server (stdio)
+uv run mac-mcp            # run the server (stdio)
 ```
 
 ruff (lint + format, line-length 88) and pytest gate CI — full workflow in
