@@ -1,4 +1,4 @@
-# apple-mcp — design
+# mac-mcp — design
 
 One consolidated MCP server (Python, FastMCP 2.0) exposing native macOS apps to LLM agents (Claude
 Code / Desktop), replacing the two servers a life-cockpit otherwise consumes — `apple-events`
@@ -8,10 +8,11 @@ native data-plane adapter, so clean module boundaries are load-bearing.
 
 ## Why this exists (settled)
 
-- The canonical unified server (`supermemoryai/apple-mcp`, 3k★) was **archived Jan 2026** and carries
-  an *"every note returned in full"* context-bloat bug. We don't resurrect it; we own a lean replacement.
+- The canonical unified server (`supermemoryai/apple-mcp`, 3k★) is **archived and unmaintained** and
+  carries an *"every note returned in full"* context-bloat bug. We don't resurrect it; we own a lean
+  replacement.
 - **The apps don't share one access method:** Calendar/Reminders → EventKit (clean, no app-open);
-  Mail/Notes → AppleScript; Photos → `osxphotos`; **Journal → no API at all** (no AppleScript
+  Mail/Notes/Photos → AppleScript; Shortcuts → CLI; **Journal → no API at all** (no AppleScript
   dictionary, JournalingSuggestions is read-only/iOS-only, entries are E2E-encrypted). So the
   architecture absorbs heterogeneous backends behind a uniform module surface — and **Journal is out**.
 
@@ -20,8 +21,8 @@ native data-plane adapter, so clean module boundaries are load-bearing.
 - **FastMCP 2.0 (standalone)** — not the official SDK's vendored `mcp.server.fastmcp` (1.x, lags the
   spec), not the low-level `Server` (boilerplate). Thin tool layer → low lock-in.
 - **`uv`** for dev (`uv sync` / `uv lock` / `uv run`); the MCP launches deterministically **off the
-  venv python**: `command: <repo>/.venv/bin/python`, `args: ["-m","apple_mcp"]` (or `uv run --frozen
-  --project <repo> apple-mcp`). Not `uvx` (ephemeral), not a system console_script (no lockfile / may
+  venv python**: `command: <repo>/.venv/bin/python`, `args: ["-m","mac_mcp"]` (or `uv run --frozen
+  --project <repo> mac-mcp`). Not `uvx` (ephemeral), not a system console_script (no lockfile / may
   lack PyObjC wheels). The same invocation becomes a launchd daemon later.
 - **Adapter contract = typed `Protocol`; reads uniform, writes per-adapter typed.** A shared
   `PointerSource` Protocol (`get_pointers(query) -> list[Pointer]`); writes are typed methods
@@ -40,37 +41,49 @@ native data-plane adapter, so clean module boundaries are load-bearing.
 ## Layout
 
 ```
-apple_mcp/
+mac_mcp/
   server.py        # FastMCP app: @mcp.tool() registrations = thin dispatch to adapters
   contracts.py     # Pointer + PointerSource Protocol (reads); typed write dataclasses
   runtime.py       # the single serialized EventKit worker thread + native-call dispatch
   adapters/
     calendar.py    # EventKit / PyObjC
     reminders.py   # EventKit / PyObjC
-    mail.py        # AppleScript / osascript        (v1.5 — port the fork)
-    photos.py      # osxphotos (optional import)     (last / maybe-never — media = Immich)
+    mail.py        # AppleScript / osascript (read-only inbox search)
+    notes.py       # AppleScript / osascript (title search)
+    contacts.py    # AppleScript / osascript (search + create)
+    photos.py      # AppleScript / osascript (Photos search command)
+    safari.py      # AppleScript / osascript (list tabs + open url)
+    messages.py    # AppleScript / osascript (chat list only)
+    shortcuts.py   # `shortcuts` CLI (list + run)
 tests/
   test_*.py        # unit (Protocol fakes); integration behind @pytest.mark.integration
 ```
 
 ## Scope by phase
 
-### v1 — Calendar + Reminders, bidirectional
-- **Read** (EventKit): events / reminders at parity with `apple-events` → retire it.
-- **Write** (EventKit): create/update/complete reminder; create/update/delete event — return stable ids.
+### v1 — Calendar + Reminders, bidirectional *(shipped)*
+- **Read** (EventKit): events / reminders at parity with `apple-events` → retires it.
+- **Write** (EventKit): create/update/complete reminder; create/update/delete event — return stable
+  ids. Both support recurrence (RFC 5545 `RRULE` subset).
 - **Outbound projection** (a cockpit-side command): vault tasks/deadlines → Apple Reminders/Calendar,
   **idempotent** via a stable id written back into the task line (a new `[rem::]`/`[cal::]` field in
   the cockpit's `conventions.md`); completion reflects both ways.
 
-### v1.5 — Mail
-- Port the existing Apple Mail fork in as an adapter; retire the standalone server. Decide upstream
-  contribution vs absorption then.
+### Read-only context + actions *(shipped)*
+The pointers-not-payload surface turned out cheap to extend, so the "later / dropped" apps came in as
+thin read adapters plus a few actions — each still returning only pointers:
+- **Mail** (AppleScript): inbox subject search. Read-only — no body fetch, no send.
+- **Notes** (AppleScript): title search.
+- **Contacts** (AppleScript): name search → name/org/first phone+email; `create_contact` action.
+- **Photos** (AppleScript `search`): media search — no PhotoKit bundle needed.
+- **Safari** (AppleScript): list open tabs; `safari_open` action (http/https only).
+- **Messages** (AppleScript): conversation list only — content needs the private `chat.db`, sending
+  is regressed since macOS 11, so both are out.
+- **Shortcuts** (`shortcuts` CLI): list shortcuts; `run_shortcut` action — a gateway to any user
+  automation, no Automation prompt.
 
-### Later / dropped
-- **Apple Notes:** dropped (migrating to the vault). Optional one-shot exporter only.
-- **Apple Photos:** last / maybe-never — media lives in **Immich** (separate integration), not here.
-- **Apple Journal:** out — no write API exists.
-- **Messages / Contacts:** YAGNI until a concrete need appears.
+### Out — no viable path
+- **Apple Journal:** no write API and no AppleScript dictionary; entries are E2E-encrypted.
 
 ## Out of scope
 - A two-way conflict-resolution engine — v1 is outbound projection + id-mediated reconcile, not a
@@ -79,4 +92,4 @@ tests/
 
 ## Tracking
 Work breakdown lives as GitHub issues. The life-cockpit tracks this repo under `#personal`
-(tracker `elfensky/apple-mcp`) and pulls issues onto its board via `/sync`.
+(tracker `elfensky/mac-mcp`) and pulls issues onto its board via `/sync`.

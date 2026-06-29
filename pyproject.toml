@@ -1,29 +1,79 @@
 [project]
-name = "apple-mcp"
-version = "0.1.0"
+name = "mac-mcp"
+version = "0.2.0"
 description = "One consolidated MCP server for native macOS apps (Calendar, Reminders, Mail, ...)."
 readme = "README.md"
 requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Andrei Lavrenov", email = "andrei@lav.ren" }]
+keywords = [
+    "mcp",
+    "model-context-protocol",
+    "macos",
+    "apple",
+    "eventkit",
+    "calendar",
+    "reminders",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: MacOS X",
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Utilities",
+]
 dependencies = [
     "fastmcp>=2.0",
-    "pyobjc-framework-EventKit>=10.0",   # Calendar + Reminders (v1)
+    "pyobjc-framework-EventKit>=10.0",    # Calendar + Reminders (v1)
 ]
+# Contacts (#15) uses osascript/Automation (Contacts.app AppleScript dictionary), not the
+# Contacts framework — a non-bundled server can't get CNContactStore TCC, but Automation works.
 
 # Photos extra deferred: osxphotos pins pyobjc-core<10, which conflicts with EventKit's pyobjc-core.
 # Media lives in Immich anyway — revisit only if an Apple Photos adapter is ever truly needed.
 
 [project.scripts]
-apple-mcp = "apple_mcp:main"
+mac-mcp = "mac_mcp:main"
 
+# Dev deps with >=major,<next pins mirror the sibling repos' uv discipline (lintle, descent-engine).
+# Runtime deps stay unbounded above — capping them downgraded EventKit/fastmcp, so don't.
 [dependency-groups]
-dev = ["pytest>=8"]
+dev = [
+    "pytest>=8,<10",
+    "pytest-cov>=6,<8",
+    "ruff>=0.15,<0.16",
+]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["apple_mcp"]
+packages = ["mac_mcp"]
+
+# ruff config imported verbatim from the sibling repos (same rule set + line length for cross-repo
+# consistency). No src= (mac-mcp is flat-layout, not src/). No mypy — neither sibling uses one.
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.pytest.ini_options]
+testpaths = ["tests"]
 markers = ["integration: real macOS / EventKit / TCC — run manually, never in CI"]
+addopts = "-m 'not integration'"
+
+# TestPyPI as a named publish target. `explicit = true` keeps it out of normal
+# dependency resolution — it is only ever used via `uv publish --index testpypi`.
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple/"
+publish-url = "https://test.pypi.org/legacy/"
+explicit = true
