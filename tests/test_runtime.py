@@ -35,7 +35,7 @@ def test_decide_raises_on_anything_else(status):
 
 
 def test_store_rejects_off_worker_calls():
-    # Called directly (main thread, not the apple-native worker) → must refuse.
+    # Called directly (main thread, not the mac-native worker) → must refuse.
     with pytest.raises(RuntimeError, match="run_native"):
         store()
 

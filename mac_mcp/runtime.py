@@ -33,7 +33,7 @@ T = TypeVar("T")
 # ponytail: one process-wide native thread. If a future app needs a *second* isolated
 # native context, give it its own executor — don't widen this one to max_workers>1
 # (breaks EKEventStore).
-_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="apple-native")
+_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="mac-native")
 
 
 def run_native(fn: Callable[[], T]) -> T:
@@ -74,19 +74,19 @@ _store: EK.EKEventStore | None = None
 
 
 def _on_worker() -> bool:
-    return threading.current_thread().name.startswith("apple-native")
+    return threading.current_thread().name.startswith("mac-native")
 
 
 def store() -> EK.EKEventStore:
     """The one process-wide EKEventStore, created lazily on the worker thread.
 
     Owned by runtime (not an adapter) so both adapters share one store without reaching
-    into each other. Must be called from inside run_native (the apple-native worker).
+    into each other. Must be called from inside run_native (the mac-native worker).
     """
     global _store
     if not _on_worker():
         raise RuntimeError(
-            "store() must be called on the apple-native worker — wrap the call in "
+            "store() must be called on the mac-native worker — wrap the call in "
             "run_native()"
         )
     if _store is None:

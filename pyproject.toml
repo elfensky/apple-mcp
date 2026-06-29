@@ -57,7 +57,7 @@ build-backend = "hatchling.build"
 packages = ["mac_mcp"]
 
 # ruff config imported verbatim from the sibling repos (same rule set + line length for cross-repo
-# consistency). No src= (apple-mcp is flat-layout, not src/). No mypy — neither sibling uses one.
+# consistency). No src= (mac-mcp is flat-layout, not src/). No mypy — neither sibling uses one.
 [tool.ruff]
 target-version = "py311"
 line-length = 88
